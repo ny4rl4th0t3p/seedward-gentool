@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/accounts"
 	genesisauthz "github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/authz"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 	genesisfeegrant "github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/feegrant"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/validator"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/vestingaccount"

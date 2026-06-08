@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 )
 
 var ErrInvalidAuthzGrant = errors.New("invalid authz grant")

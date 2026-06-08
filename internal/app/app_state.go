@@ -11,8 +11,8 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 )
 
 type StateManager struct {

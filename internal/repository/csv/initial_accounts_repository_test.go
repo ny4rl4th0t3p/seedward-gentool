@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository/csv"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 )
 
 const testHRP = "cosmos"

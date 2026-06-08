@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/app"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository/csv"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository/gentx"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 )
 
 const flagInputGenesis = "input-genesis"
