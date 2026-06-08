@@ -17,7 +17,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/spf13/viper"
 
@@ -73,14 +72,55 @@ func moduleAddress(hrp, moduleName string) (string, error) {
 	return addr, nil
 }
 
-func saveGenesis(appGenState map[string]json.RawMessage, appGenesis *genutiltypes.AppGenesis, outputPath string) error {
+func saveGenesis(
+	appGenState map[string]json.RawMessage,
+	appGenesis *genutiltypes.AppGenesis,
+	genesisTime time.Time,
+	outputPath string,
+) error {
 	appStateJSON, err := json.Marshal(appGenState)
 	if err != nil {
 		return errorsmod.Wrap(err, "failed to marshal app state")
 	}
 	appGenesis.AppState = appStateJSON
-	appGenesis.GenesisTime = time.Unix(viper.GetInt64(GenesisTimeKey), 0).UTC()
+	appGenesis.GenesisTime = genesisTime
 	return appGenesis.SaveAs(outputPath)
+}
+
+// addBaseGenesisAccount adds a plain base account (and its balance) to the
+// in-memory auth/bank state, mirroring genutil.AddGenesisAccount without
+// touching disk. An empty amountStr (e.g. validators, whose stake lives in the
+// bonded_tokens_pool) adds the account with no balance or supply change.
+func addBaseGenesisAccount(
+	accAddr sdk.AccAddress,
+	amountStr string,
+	appendAccount bool,
+	accs authtypes.GenesisAccounts,
+	bankGenState *banktypes.GenesisState,
+) (authtypes.GenesisAccounts, error) {
+	coins, err := sdk.ParseCoinsNormalized(amountStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse coins: %w", err)
+	}
+
+	if accs.Contains(accAddr) {
+		if !appendAccount {
+			return nil, fmt.Errorf("account %s already exists", accAddr)
+		}
+	} else {
+		accs = append(accs, authtypes.NewBaseAccount(accAddr, nil, 0, 0))
+	}
+
+	if coins.IsZero() {
+		return accs, nil
+	}
+
+	balance := banktypes.Balance{Address: accAddr.String(), Coins: coins.Sort()}
+	if err := updateBalances(accAddr, balance, coins, bankGenState, appendAccount); err != nil {
+		return nil, err
+	}
+	bankGenState.Supply = bankGenState.Supply.Add(coins...)
+	return accs, nil
 }
 
 func updateModuleState(
@@ -112,6 +152,7 @@ func AddCustomVestingGenesisAccount(
 	vestingAccount vesting_account.VestingAccount,
 	accAddr sdk.AccAddress,
 	vestingStart, vestingEnd int64,
+	hrp string,
 	encodingConfig encoding.EncodingConfig,
 	accs authtypes.GenesisAccounts,
 	bankGenState *banktypes.GenesisState,
@@ -131,7 +172,7 @@ func AddCustomVestingGenesisAccount(
 	}
 
 	if err := allocateDelegatedFunds(
-		vestingAccount, addr, accAddr, balances, encodingConfig, bankGenState, appendAcct, denom, nonStakedPortion,
+		vestingAccount, addr, accAddr, balances, hrp, encodingConfig, bankGenState, appendAcct, denom, nonStakedPortion,
 	); err != nil {
 		return nil, err
 	}
@@ -191,6 +232,7 @@ func allocateDelegatedFunds(
 	addr sdk.AccAddress,
 	accAddr sdk.AccAddress,
 	balances banktypes.Balance,
+	hrp string,
 	encodingConfig encoding.EncodingConfig,
 	bankGenState *banktypes.GenesisState,
 	appendAcct bool,
@@ -201,7 +243,6 @@ func allocateDelegatedFunds(
 		return updateBalances(addr, balances, balances.Coins, bankGenState, appendAcct)
 	}
 
-	hrp := viper.GetString("chain.address_prefix")
 	bondedAddr, err := moduleAddress(hrp, "bonded_tokens_pool")
 	if err != nil {
 		return err
@@ -236,66 +277,33 @@ func updateBalances(
 	return nil
 }
 
+// AddCustomModuleGenesisAccount adds a module account (and its balance) to the
+// in-memory auth/bank state. The caller is responsible for loading accs/
+// bankGenState and sealing them back into the genesis app state.
 func AddCustomModuleGenesisAccount(
-	cdc sdkcodec.Codec,
 	accAddr sdk.AccAddress,
-	genesisFileURL,
 	amountStr,
 	moduleName string,
 	permissions []string,
-) error {
+	accs authtypes.GenesisAccounts,
+	bankGenState *banktypes.GenesisState,
+) (authtypes.GenesisAccounts, error) {
 	coins, err := sdk.ParseCoinsNormalized(amountStr)
 	if err != nil {
-		return fmt.Errorf("failed to parse coins: %w", err)
+		return nil, fmt.Errorf("failed to parse coins: %w", err)
 	}
-	balances := banktypes.Balance{Address: accAddr.String(), Coins: coins.Sort()}
 	genAccount := authtypes.NewEmptyModuleAccount(moduleName, permissions...)
 	if err := genAccount.Validate(); err != nil {
-		return fmt.Errorf("failed to validate new genesis account: %w", err)
+		return nil, fmt.Errorf("failed to validate new genesis account: %w", err)
 	}
-
-	appState, appGenesis, err := genutiltypes.GenesisStateFromGenFile(genesisFileURL)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal genesis state: %w", err)
-	}
-
-	authGenState := authtypes.GetGenesisStateFromAppState(cdc, appState)
-	accs, err := authtypes.UnpackAccounts(authGenState.Accounts)
-	if err != nil {
-		return fmt.Errorf("failed to get accounts from any: %w", err)
-	}
-	bankGenState := banktypes.GetGenesisStateFromAppState(cdc, appState)
 
 	if accs.Contains(accAddr) {
-		return fmt.Errorf("account %s already exists", accAddr)
+		return nil, fmt.Errorf("account %s already exists", accAddr)
 	}
-
 	accs = append(accs, genAccount)
-	accs = authtypes.SanitizeGenesisAccounts(accs)
-	genAccs, err := authtypes.PackAccounts(accs)
-	if err != nil {
-		return fmt.Errorf("failed to convert accounts into any's: %w", err)
-	}
-	authGenState.Accounts = genAccs
-	authGenStateBz, err := cdc.MarshalJSON(&authGenState)
-	if err != nil {
-		return fmt.Errorf("failed to marshal auth genesis state: %w", err)
-	}
-	appState[authtypes.ModuleName] = authGenStateBz
 
-	bankGenState.Balances = append(bankGenState.Balances, balances)
-	bankGenState.Balances = banktypes.SanitizeGenesisBalances(bankGenState.Balances)
-	bankGenState.Supply = bankGenState.Supply.Add(balances.Coins...)
-	bankGenStateBz, err := cdc.MarshalJSON(bankGenState)
-	if err != nil {
-		return fmt.Errorf("failed to marshal bank genesis state: %w", err)
-	}
-	appState[banktypes.ModuleName] = bankGenStateBz
-
-	appStateJSON, err := json.Marshal(appState)
-	if err != nil {
-		return fmt.Errorf("failed to marshal application genesis state: %w", err)
-	}
-	appGenesis.AppState = appStateJSON
-	return genutil.ExportGenesisFile(appGenesis, genesisFileURL)
+	balance := banktypes.Balance{Address: accAddr.String(), Coins: coins.Sort()}
+	bankGenState.Balances = append(bankGenState.Balances, balance)
+	bankGenState.Supply = bankGenState.Supply.Add(balance.Coins...)
+	return accs, nil
 }

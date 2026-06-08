@@ -14,8 +14,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/cosmos-sdk/x/genutil"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/spf13/viper"
 
@@ -73,95 +71,33 @@ func (va Accounts) fetchValidatorsShares(encodingConfig encoding.EncodingConfig)
 	return shares, nil
 }
 
-// Returns the updated in-memory genesis state to avoid a redundant disk reload by the caller.
-func (va Accounts) appendVestingAccounts(
-	ctx context.Context,
-	encodingConfig encoding.EncodingConfig,
-	clientCtx client.Context,
-	validatorsReference map[string]ValidatorAddresses,
-) (delegations []stakingtypes.Delegation, appState map[string]json.RawMessage, appGenesis *genutiltypes.AppGenesis, err error) {
-	claims, err := va.claimRepository.GetClaims(ctx, encodingConfig)
+// loadAuthBankState pulls the auth and bank genesis state out of the in-memory
+// app state map and unpacks the accounts for mutation.
+func loadAuthBankState(
+	clientCtx client.Context, appState map[string]json.RawMessage,
+) (
+	authGenState authtypes.GenesisState,
+	bankGenState *banktypes.GenesisState,
+	accs authtypes.GenesisAccounts,
+	err error,
+) {
+	authGenState = authtypes.GetGenesisStateFromAppState(clientCtx.Codec, appState)
+	bankGenState = banktypes.GetGenesisStateFromAppState(clientCtx.Codec, appState)
+	accs, err = authtypes.UnpackAccounts(authGenState.Accounts)
 	if err != nil {
-		return nil, nil, nil, err
+		return authtypes.GenesisState{}, nil, nil, fmt.Errorf("failed to extract accounts: %w", err)
 	}
-	grants, err := va.grantRepository.GetGrants(ctx, encodingConfig)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	_, appGenesis, err = genutiltypes.GenesisStateFromGenFile(viper.GetString("genesis.output"))
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to read genesis state: %w", err)
-	}
-	appState, err = genutiltypes.GenesisStateFromAppGenesis(appGenesis)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to unmarshal genesis state: %w", err)
-	}
-
-	authGenState := authtypes.GetGenesisStateFromAppState(clientCtx.Codec, appState)
-	bankGenState := banktypes.GetGenesisStateFromAppState(clientCtx.Codec, appState)
-	accs, err := authtypes.UnpackAccounts(authGenState.Accounts)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to extract accounts: %w", err)
-	}
-
-	// --- claims: delayed vesting, optional immediate delegation ---
-	sort.SliceStable(claims, func(i, j int) bool {
-		return claims[i].Address() < claims[j].Address()
-	})
-	nonStakedPortion := getNonStakedPortion()
-	for _, claim := range claims {
-		addr, err := encodingConfig.TxConfig.SigningContext().AddressCodec().StringToBytes(claim.Address())
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		accs, err = AddCustomVestingGenesisAccount(
-			claim, addr, 0, viper.GetInt64("claims.vesting.end_date"),
-			encodingConfig, accs, bankGenState, true,
-		)
-		if err != nil {
-			slog.Error(err.Error())
-			return nil, nil, nil, err
-		}
-		if strings.TrimSpace(claim.DelegateTo()) != "" {
-			if _, ok := validatorsReference[claim.DelegateTo()]; !ok {
-				return nil, nil, nil, fmt.Errorf("validator reference for '%s' does not exist", claim.DelegateTo())
-			}
-			delegations = append(delegations, stakingtypes.Delegation{
-				DelegatorAddress: claim.Address(),
-				ValidatorAddress: validatorsReference[claim.DelegateTo()].OperatorAddress,
-				Shares:           math.LegacyNewDec(claim.Amount() - nonStakedPortion),
-			})
-		}
-	}
-
-	// --- grants: continuous vesting (start→end), never pre-delegated ---
-	for _, grant := range grants {
-		addr, err := encodingConfig.TxConfig.SigningContext().AddressCodec().StringToBytes(grant.Address())
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		accs, err = AddCustomVestingGenesisAccount(
-			grant, addr,
-			viper.GetInt64("grants.vesting.start_date"),
-			viper.GetInt64("grants.vesting.end_date"),
-			encodingConfig, accs, bankGenState, false,
-		)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-	}
-
-	return delegations, appState, appGenesis, sealVestingState(clientCtx, accs, authGenState, bankGenState, appState, appGenesis)
+	return authGenState, bankGenState, accs, nil
 }
 
-func sealVestingState(
+// sealAuthBankState sanitizes and marshals the mutated auth and bank state back
+// into the in-memory app state map. No disk I/O; the final genesis save handles that.
+func sealAuthBankState(
 	clientCtx client.Context,
 	accs authtypes.GenesisAccounts,
 	authGenState authtypes.GenesisState,
 	bankGenState *banktypes.GenesisState,
 	appState map[string]json.RawMessage,
-	appGenesis *genutiltypes.AppGenesis,
 ) error {
 	accs = authtypes.SanitizeGenesisAccounts(accs)
 	packedAccounts, err := authtypes.PackAccounts(accs)
@@ -182,13 +118,85 @@ func sealVestingState(
 		return fmt.Errorf("failed to marshal bank genesis state: %w", err)
 	}
 	appState[banktypes.ModuleName] = bankGenStateBz
+	return nil
+}
 
-	appStateJSON, err := json.Marshal(appState)
+// Mutates the shared in-memory app state; delegations are returned so the caller
+// can wire them into the staking module.
+func (va Accounts) appendVestingAccounts(
+	ctx context.Context,
+	encodingConfig encoding.EncodingConfig,
+	clientCtx client.Context,
+	validatorsReference map[string]ValidatorAddresses,
+	appState map[string]json.RawMessage,
+) (delegations []stakingtypes.Delegation, err error) {
+	claims, err := va.claimRepository.GetClaims(ctx, encodingConfig)
 	if err != nil {
-		return fmt.Errorf("failed to marshal application genesis state: %w", err)
+		return nil, err
 	}
-	appGenesis.AppState = appStateJSON
-	return genutil.ExportGenesisFile(appGenesis, viper.GetString("genesis.output"))
+	grants, err := va.grantRepository.GetGrants(ctx, encodingConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	authGenState, bankGenState, accs, err := loadAuthBankState(clientCtx, appState)
+	if err != nil {
+		return nil, err
+	}
+
+	hrp := viper.GetString("chain.address_prefix")
+
+	// --- claims: delayed vesting, optional immediate delegation ---
+	sort.SliceStable(claims, func(i, j int) bool {
+		return claims[i].Address() < claims[j].Address()
+	})
+	nonStakedPortion := getNonStakedPortion()
+	for _, claim := range claims {
+		addr, err := encodingConfig.TxConfig.SigningContext().AddressCodec().StringToBytes(claim.Address())
+		if err != nil {
+			return nil, err
+		}
+		accs, err = AddCustomVestingGenesisAccount(
+			claim, addr, 0, viper.GetInt64("claims.vesting.end_date"),
+			hrp, encodingConfig, accs, bankGenState, true,
+		)
+		if err != nil {
+			slog.Error(err.Error())
+			return nil, err
+		}
+		if strings.TrimSpace(claim.DelegateTo()) != "" {
+			if _, ok := validatorsReference[claim.DelegateTo()]; !ok {
+				return nil, fmt.Errorf("validator reference for '%s' does not exist", claim.DelegateTo())
+			}
+			delegations = append(delegations, stakingtypes.Delegation{
+				DelegatorAddress: claim.Address(),
+				ValidatorAddress: validatorsReference[claim.DelegateTo()].OperatorAddress,
+				Shares:           math.LegacyNewDec(claim.Amount() - nonStakedPortion),
+			})
+		}
+	}
+
+	// --- grants: continuous vesting (start→end), never pre-delegated ---
+	for _, grant := range grants {
+		addr, err := encodingConfig.TxConfig.SigningContext().AddressCodec().StringToBytes(grant.Address())
+		if err != nil {
+			return nil, err
+		}
+		accs, err = AddCustomVestingGenesisAccount(
+			grant, addr,
+			viper.GetInt64("grants.vesting.start_date"),
+			viper.GetInt64("grants.vesting.end_date"),
+			hrp, encodingConfig, accs, bankGenState, false,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := sealAuthBankState(clientCtx, accs, authGenState, bankGenState, appState); err != nil {
+		return nil, err
+	}
+	return delegations, nil
 }
 
 type ValidatorAddresses struct {
@@ -200,6 +208,7 @@ func (va Accounts) appendValidators(
 	ctx context.Context,
 	encodingConfig encoding.EncodingConfig,
 	clientCtx client.Context,
+	appState map[string]json.RawMessage,
 ) (map[string]ValidatorAddresses, error) {
 	validators, err := va.validatorRepository.GetValidators(ctx)
 	if err != nil {
@@ -209,23 +218,34 @@ func (va Accounts) appendValidators(
 		return validators[i].Name() < validators[j].Name()
 	})
 
-	if err := addValidatorsToGenesis(encodingConfig, clientCtx, validators); err != nil {
+	if err := addValidatorsToGenesis(encodingConfig, clientCtx, validators, appState); err != nil {
 		return nil, err
 	}
 	return buildValidatorReference(validators), nil
 }
 
-func addValidatorsToGenesis(encodingConfig encoding.EncodingConfig, clientCtx client.Context, validators []validator.Validator) error {
+func addValidatorsToGenesis(
+	encodingConfig encoding.EncodingConfig,
+	clientCtx client.Context,
+	validators []validator.Validator,
+	appState map[string]json.RawMessage,
+) error {
+	authGenState, bankGenState, accs, err := loadAuthBankState(clientCtx, appState)
+	if err != nil {
+		return err
+	}
 	for i := range validators {
 		addr, err := encodingConfig.TxConfig.SigningContext().AddressCodec().StringToBytes(validators[i].DelegatorAddress())
 		if err != nil {
 			return err
 		}
-		if err := genutil.AddGenesisAccount(clientCtx.Codec, addr, true, viper.GetString("genesis.output"), "", "", 0, 0, ""); err != nil {
+		// Validators carry no liquid balance here; their stake lives in bonded_tokens_pool.
+		accs, err = addBaseGenesisAccount(addr, "", true, accs, bankGenState)
+		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return sealAuthBankState(clientCtx, accs, authGenState, bankGenState, appState)
 }
 
 func buildValidatorReference(validators []validator.Validator) map[string]ValidatorAddresses {
@@ -243,6 +263,7 @@ func (va Accounts) appendModuleAccounts(
 	_ context.Context,
 	encodingConfig encoding.EncodingConfig,
 	clientCtx client.Context,
+	appState map[string]json.RawMessage,
 ) error {
 	hrp := viper.GetString("chain.address_prefix")
 	denom := viper.GetString("default_bond_denom")
@@ -308,27 +329,36 @@ func (va Accounts) appendModuleAccounts(
 	}
 	sort.Strings(moduleKeys)
 
+	authGenState, bankGenState, accs, err := loadAuthBankState(clientCtx, appState)
+	if err != nil {
+		return err
+	}
 	for _, key := range moduleKeys {
 		m := modules[key]
 		addr, err := encodingConfig.TxConfig.SigningContext().AddressCodec().StringToBytes(m.address)
 		if err != nil {
 			return err
 		}
-		if err := AddCustomModuleGenesisAccount(
-			clientCtx.Codec,
+		accs, err = AddCustomModuleGenesisAccount(
 			addr,
-			viper.GetString("genesis.output"),
 			strconv.FormatInt(m.amount, 10)+denom,
 			key,
 			m.permissions,
-		); err != nil {
+			accs,
+			bankGenState,
+		)
+		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return sealAuthBankState(clientCtx, accs, authGenState, bankGenState, appState)
 }
 
-func (va Accounts) appendInitialAccounts(encodingConfig encoding.EncodingConfig, clientCtx client.Context) error {
+func (va Accounts) appendInitialAccounts(
+	encodingConfig encoding.EncodingConfig,
+	clientCtx client.Context,
+	appState map[string]json.RawMessage,
+) error {
 	initialAccounts, err := va.initialAccountsRepo.GetInitialAccounts(context.Background(), encodingConfig)
 	if err != nil {
 		return err
@@ -337,6 +367,10 @@ func (va Accounts) appendInitialAccounts(encodingConfig encoding.EncodingConfig,
 		return fmt.Errorf("accounts.file_name CSV is empty; at least one account is required")
 	}
 
+	authGenState, bankGenState, accs, err := loadAuthBankState(clientCtx, appState)
+	if err != nil {
+		return err
+	}
 	denom := viper.GetString("default_bond_denom")
 	for _, acc := range initialAccounts {
 		if acc.Amount() == 0 {
@@ -347,11 +381,10 @@ func (va Accounts) appendInitialAccounts(encodingConfig encoding.EncodingConfig,
 			return err
 		}
 		amountStr := strconv.FormatInt(acc.Amount(), 10) + denom
-		if err := genutil.AddGenesisAccount(
-			clientCtx.Codec, addr, false, viper.GetString("genesis.output"), amountStr, "", 0, 0, "",
-		); err != nil {
+		accs, err = addBaseGenesisAccount(addr, amountStr, false, accs, bankGenState)
+		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return sealAuthBankState(clientCtx, accs, authGenState, bankGenState, appState)
 }

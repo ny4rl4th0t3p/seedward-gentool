@@ -9,6 +9,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
@@ -257,7 +258,7 @@ func TestAllocateDelegatedFunds_NoDelegation(t *testing.T) {
 
 	err := allocateDelegatedFunds(
 		stubVestingAcct{amount: 1_000_000}, // DelegateTo() == ""
-		addr, addr, balances,
+		addr, addr, balances, testHRP,
 		encoding.EncodingConfig{}, bankState,
 		false, "uatom", 100_000,
 	)
@@ -267,9 +268,6 @@ func TestAllocateDelegatedFunds_NoDelegation(t *testing.T) {
 }
 
 func TestAllocateDelegatedFunds_WithDelegation(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	ec := encoding.NewEncodingConfig()
 	addr := testAccAddr(41)
 
@@ -287,7 +285,7 @@ func TestAllocateDelegatedFunds_WithDelegation(t *testing.T) {
 
 	err = allocateDelegatedFunds(
 		stubVestingAcct{amount: 1_000_000, delegateTo: "cosmosvaloper1anything"},
-		addr, addr, balances,
+		addr, addr, balances, testHRP,
 		ec, bankState,
 		true, "uatom", 100_000,
 	)
@@ -311,9 +309,6 @@ func TestAllocateDelegatedFunds_WithDelegation(t *testing.T) {
 // --- saveGenesis ---
 
 func TestSaveGenesis_WritesReadableFile(t *testing.T) {
-	viper.Set(GenesisTimeKey, int64(1_700_000_000))
-	t.Cleanup(func() { viper.Set(GenesisTimeKey, nil) })
-
 	ec := encoding.NewEncodingConfig()
 	bankDefault := banktypes.DefaultGenesisState()
 	bz, err := ec.Codec.MarshalJSON(bankDefault)
@@ -322,8 +317,9 @@ func TestSaveGenesis_WritesReadableFile(t *testing.T) {
 
 	appGenesis := &genutiltypes.AppGenesis{ChainID: "test-chain-1"}
 	path := filepath.Join(t.TempDir(), "genesis.json")
+	genesisTime := time.Unix(1_700_000_000, 0).UTC()
 
-	require.NoError(t, saveGenesis(appGenState, appGenesis, path))
+	require.NoError(t, saveGenesis(appGenState, appGenesis, genesisTime, path))
 
 	_, err = os.Stat(path)
 	require.NoError(t, err, "genesis file should exist")
@@ -337,12 +333,9 @@ func TestSaveGenesis_WritesReadableFile(t *testing.T) {
 
 func TestSaveGenesis_StampsGenesisTime(t *testing.T) {
 	const genesisUnix = int64(1_700_000_000)
-	viper.Set(GenesisTimeKey, genesisUnix)
-	t.Cleanup(func() { viper.Set(GenesisTimeKey, nil) })
-
 	appGenesis := &genutiltypes.AppGenesis{}
 	path := filepath.Join(t.TempDir(), "genesis.json")
-	require.NoError(t, saveGenesis(map[string]json.RawMessage{}, appGenesis, path))
+	require.NoError(t, saveGenesis(map[string]json.RawMessage{}, appGenesis, time.Unix(genesisUnix, 0).UTC(), path))
 
 	_, readGenesis, err := genutiltypes.GenesisStateFromGenFile(path)
 	require.NoError(t, err)
@@ -392,4 +385,77 @@ func TestLoadGenesis_NonExistentFile_ReturnsError(t *testing.T) {
 	_, _, _, _, err := LoadGenesis("/nonexistent/genesis.json") //nolint:dogsled // only error matters here
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read genesis file")
+}
+
+// --- addBaseGenesisAccount ---
+
+func balanceOf(bank *banktypes.GenesisState, address string) int64 {
+	for _, b := range bank.Balances {
+		if b.Address == address {
+			return b.Coins.AmountOf("uatom").Int64()
+		}
+	}
+	return 0
+}
+
+func TestAddBaseGenesisAccount(t *testing.T) {
+	bank := &banktypes.GenesisState{}
+	accs := authtypes.GenesisAccounts{}
+
+	addr := testAccAddr(70)
+
+	// New account with a balance.
+	accs, err := addBaseGenesisAccount(addr, "1000000uatom", false, accs, bank)
+	require.NoError(t, err)
+	require.Len(t, accs, 1)
+	require.True(t, accs.Contains(addr))
+	assert.Equal(t, int64(1_000_000), balanceOf(bank, addr.String()))
+	assert.Equal(t, int64(1_000_000), bank.Supply.AmountOf("uatom").Int64())
+
+	// Empty amount: account added, no balance, no supply change.
+	valAddr := testAccAddr(71)
+	accs, err = addBaseGenesisAccount(valAddr, "", true, accs, bank)
+	require.NoError(t, err)
+	require.Len(t, accs, 2)
+	require.True(t, accs.Contains(valAddr))
+	assert.Equal(t, int64(0), balanceOf(bank, valAddr.String()))
+	assert.Equal(t, int64(1_000_000), bank.Supply.AmountOf("uatom").Int64())
+
+	// appendAccount=true merges into the existing balance and supply.
+	accs, err = addBaseGenesisAccount(addr, "500000uatom", true, accs, bank)
+	require.NoError(t, err)
+	require.Len(t, accs, 2, "existing account is not duplicated")
+	assert.Equal(t, int64(1_500_000), balanceOf(bank, addr.String()))
+	assert.Equal(t, int64(1_500_000), bank.Supply.AmountOf("uatom").Int64())
+
+	// appendAccount=false on an existing address is rejected.
+	_, err = addBaseGenesisAccount(addr, "1uatom", false, accs, bank)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already exists")
+}
+
+// --- AddCustomModuleGenesisAccount (in-memory) ---
+
+func TestAddCustomModuleGenesisAccountInMemory(t *testing.T) {
+	bank := &banktypes.GenesisState{}
+	accs := authtypes.GenesisAccounts{}
+
+	// A module account's address is derived from its name; callers pass that
+	// same address as accAddr (as appendModuleAccounts does).
+	mintAddr := authtypes.NewModuleAddress("mint")
+	accs, err := AddCustomModuleGenesisAccount(
+		mintAddr, "2000000uatom", "mint", []string{authtypes.Minter}, accs, bank,
+	)
+	require.NoError(t, err)
+	require.Len(t, accs, 1)
+	require.True(t, accs.Contains(mintAddr))
+	assert.Equal(t, int64(2_000_000), balanceOf(bank, mintAddr.String()))
+	assert.Equal(t, int64(2_000_000), bank.Supply.AmountOf("uatom").Int64())
+
+	// Duplicate module address is rejected.
+	_, err = AddCustomModuleGenesisAccount(
+		mintAddr, "1uatom", "mint", []string{authtypes.Minter}, accs, bank,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already exists")
 }

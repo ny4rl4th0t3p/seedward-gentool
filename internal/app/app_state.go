@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/cometbft/cometbft/config"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -60,72 +61,66 @@ func NewAppStateManager(
 	}
 }
 
-func (asm StateManager) SetupAppState(ctx context.Context) (map[string]int64, error) {
+func (asm StateManager) SetupAppState(ctx context.Context) (*genutiltypes.AppGenesis, map[string]int64, error) {
 	outputPath := viper.GetString("genesis.output")
 
 	slog.Info("Fixing governance parameters...")
 	if err := asm.fixGovernanceParameters(asm.appGenState); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	slog.Info("Fixing mint parameters...")
 	if err := asm.fixMintParameters(asm.appGenState); err != nil {
-		return nil, err
-	}
-
-	slog.Info("Saving initial app state...")
-	if err := saveGenesis(asm.appGenState, asm.appGenesis, outputPath); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	slog.Info("Appending module accounts...")
-	if err := asm.accounts.appendModuleAccounts(ctx, asm.encodingConfig, asm.clientCtx); err != nil {
-		return nil, err
+	if err := asm.accounts.appendModuleAccounts(ctx, asm.encodingConfig, asm.clientCtx, asm.appGenState); err != nil {
+		return nil, nil, err
 	}
 
 	slog.Info("Fetching validator shares...")
 	shares, err := asm.accounts.fetchValidatorsShares(asm.encodingConfig)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	slog.Info("Appending validators...")
-	validatorsReference, err := asm.accounts.appendValidators(ctx, asm.encodingConfig, asm.clientCtx)
+	validatorsReference, err := asm.accounts.appendValidators(ctx, asm.encodingConfig, asm.clientCtx, asm.appGenState)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	slog.Info("Appending initial accounts...")
-	if err := asm.accounts.appendInitialAccounts(asm.encodingConfig, asm.clientCtx); err != nil {
-		return nil, err
+	if err := asm.accounts.appendInitialAccounts(asm.encodingConfig, asm.clientCtx, asm.appGenState); err != nil {
+		return nil, nil, err
 	}
 
 	slog.Info("Appending claims and grants...")
-	delegations, updatedAppState, updatedAppGenesis, err := asm.accounts.appendVestingAccounts(
-		ctx, asm.encodingConfig, asm.clientCtx, validatorsReference)
+	delegations, err := asm.accounts.appendVestingAccounts(
+		ctx, asm.encodingConfig, asm.clientCtx, validatorsReference, asm.appGenState)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	asm.appGenState = updatedAppState
-	asm.appGenesis = updatedAppGenesis
 
 	slog.Info("Configuring module states...")
 	if err := asm.configureModuleStates(ctx, delegations, shares); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	slog.Info("Validating total supply...")
 	if err := asm.validateSupply(); err != nil {
-		return nil, fmt.Errorf("supply validation failed: %w", err)
+		return nil, nil, fmt.Errorf("supply validation failed: %w", err)
 	}
 
 	slog.Info("Saving final genesis file...")
-	if err := saveGenesis(asm.appGenState, asm.appGenesis, outputPath); err != nil {
-		return nil, err
+	genesisTime := time.Unix(viper.GetInt64(GenesisTimeKey), 0).UTC()
+	if err := saveGenesis(asm.appGenState, asm.appGenesis, genesisTime, outputPath); err != nil {
+		return nil, nil, err
 	}
 
 	slog.Info("SetupAppState completed successfully.")
-	return shares, nil
+	return asm.appGenesis, shares, nil
 }
 
 func (asm StateManager) configureModuleStates(ctx context.Context, delegations []stakingtypes.Delegation, shares map[string]int64) error {

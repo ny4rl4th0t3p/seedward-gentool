@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	errorsmod "cosmossdk.io/errors"
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -73,15 +71,10 @@ var createCmd = &cobra.Command{
 			clientCtx,
 		)
 
-		shares, err := appStateManager.SetupAppState(context.Background())
+		appGenesis, shares, err := appStateManager.SetupAppState(context.Background())
 		if err != nil {
 			slog.Error(err.Error())
 			return err
-		}
-
-		appGenesis, err = genutiltypes.AppGenesisFromFile(viper.GetString("genesis.output"))
-		if err != nil {
-			return errorsmod.Wrap(err, "failed to read genesis doc from file")
 		}
 
 		consensus := app.NewConsensus(validatorsRepository, appGenesis, encodingConfig.TxConfig.SigningContext().AddressCodec(), shares)
