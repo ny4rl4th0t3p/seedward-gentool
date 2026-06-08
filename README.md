@@ -360,6 +360,33 @@ Extra modules declared under `modules.extra` start with zero balance and whateve
 
 ---
 
+## Memory & resource limits
+
+gentool builds the entire genesis **in memory** — it reads the baseline genesis into a byte
+buffer and holds the working state (auth accounts, bank balances, staking delegations) until the
+final writing. Peak RAM therefore scales with the number of accounts/claims/grants/validators, and a
+huge genesis can be multi-gigabyte.
+
+gentool does **not** try to predict or cap its own memory — bound it where it's actually enforced,
+at the container/cgroup level:
+
+```bash
+docker run --memory=4g -e GOMEMLIMIT=3600MiB gentool genesis create ...
+# k8s: resources.limits.memory: 4Gi  +  env GOMEMLIMIT=3600MiB
+```
+
+- The **container memory limit** is the hard cap — exceed it and the kernel OOM-kills the process.
+- [`GOMEMLIMIT`](https://pkg.go.dev/runtime#hdr-Environment_Variables) (a Go runtime env var, read
+  automatically — no flag needed) is a **soft** target: as the heap approaches it, the GC runs more
+  aggressively to stay under the hard cap instead of tripping it. Set it to ~**90%** of the container
+  limit, leaving headroom for non-heap memory. It's pure Go, so `GOMEMLIMIT` governs essentially all
+  of its memory.
+
+If a genesis genuinely needs more than the limit, expect an OOM kill (or, with `GOMEMLIMIT` set, heavy
+GC thrashing first) — give the job a bigger box.
+
+---
+
 ## Roadmap
 
 Implemented:
