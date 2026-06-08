@@ -11,24 +11,24 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	domainfeegrant "github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/feegrant"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	genesisfeegrant "github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/feegrant"
 )
 
 type stubFeeAllowanceRepo struct {
-	allowances []domainfeegrant.FeeAllowance
+	allowances []genesisfeegrant.FeeAllowance
 	err        error
 }
 
-func (s stubFeeAllowanceRepo) GetFeeAllowances(_ context.Context, _ encoding.EncodingConfig) ([]domainfeegrant.FeeAllowance, error) {
+func (s stubFeeAllowanceRepo) GetFeeAllowances(_ context.Context, _ encoding.EncodingConfig) ([]genesisfeegrant.FeeAllowance, error) {
 	return s.allowances, s.err
 }
 
-func makeFeeAllowance(t *testing.T, ec encoding.EncodingConfig, granterIdx, granteeIdx byte, spendLimit, expiry int64) domainfeegrant.FeeAllowance {
+func makeFeeAllowance(t *testing.T, ec encoding.EncodingConfig, granterIdx, granteeIdx byte, spendLimit, expiry int64) genesisfeegrant.FeeAllowance {
 	t.Helper()
 	granter := testAccAddr(granterIdx).String()
 	grantee := testAccAddr(granteeIdx).String()
-	a, err := domainfeegrant.NewFeeAllowance(granter, grantee, spendLimit, expiry, ec)
+	a, err := genesisfeegrant.NewFeeAllowance(granter, grantee, spendLimit, expiry, ec)
 	require.NoError(t, err)
 	return *a
 }
@@ -87,7 +87,7 @@ func TestSetFeegrantState_NonZeroSpendLimit_WrittenToGenesis(t *testing.T) {
 	appGenState := feegrantAppState(t, ec)
 	asm := StateManager{
 		encodingConfig:         ec,
-		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []domainfeegrant.FeeAllowance{a}},
+		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []genesisfeegrant.FeeAllowance{a}},
 		cfg:                    ChainConfig{BondDenom: "uatom"},
 	}
 
@@ -107,7 +107,7 @@ func TestSetFeegrantState_ZeroSpendLimit_NilSpendLimitInBasicAllowance(t *testin
 	appGenState := feegrantAppState(t, ec)
 	asm := StateManager{
 		encodingConfig:         ec,
-		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []domainfeegrant.FeeAllowance{a}},
+		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []genesisfeegrant.FeeAllowance{a}},
 		cfg:                    ChainConfig{BondDenom: "uatom"},
 	}
 
@@ -131,7 +131,7 @@ func TestSetFeegrantState_WithExpiry_ExpirationSet(t *testing.T) {
 	appGenState := feegrantAppState(t, ec)
 	asm := StateManager{
 		encodingConfig:         ec,
-		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []domainfeegrant.FeeAllowance{a}},
+		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []genesisfeegrant.FeeAllowance{a}},
 		cfg:                    ChainConfig{BondDenom: "uatom"},
 	}
 

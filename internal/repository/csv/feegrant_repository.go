@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	domainfeegrant "github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/feegrant"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	genesisfeegrant "github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/feegrant"
 )
 
 type FeeAllowanceRepository struct {
@@ -19,8 +19,11 @@ func NewCSVFeeAllowanceRepository(filePath string, moduleAddresses map[string]bo
 	return &FeeAllowanceRepository{filePath: filePath, moduleAddresses: moduleAddresses}
 }
 
-func (r *FeeAllowanceRepository) GetFeeAllowances(ctx context.Context, enc encoding.EncodingConfig) ([]domainfeegrant.FeeAllowance, error) {
-	var allowances []domainfeegrant.FeeAllowance
+func (r *FeeAllowanceRepository) GetFeeAllowances(
+	ctx context.Context,
+	enc encoding.EncodingConfig,
+) ([]genesisfeegrant.FeeAllowance, error) {
+	var allowances []genesisfeegrant.FeeAllowance
 	err := readCSVRecords(ctx, r.filePath, r.moduleAddresses, -1, func(record []string) error {
 		a, err := parseFeeAllowanceRecord(record, enc)
 		if err != nil {
@@ -32,7 +35,7 @@ func (r *FeeAllowanceRepository) GetFeeAllowances(ctx context.Context, enc encod
 	return allowances, err
 }
 
-func parseFeeAllowanceRecord(record []string, enc encoding.EncodingConfig) (*domainfeegrant.FeeAllowance, error) {
+func parseFeeAllowanceRecord(record []string, enc encoding.EncodingConfig) (*genesisfeegrant.FeeAllowance, error) {
 	if len(record) < 3 || len(record) > 4 {
 		return nil, fmt.Errorf("expected 3 or 4 fields, got %d", len(record))
 	}
@@ -53,5 +56,5 @@ func parseFeeAllowanceRecord(record []string, enc encoding.EncodingConfig) (*dom
 		expiry = v
 	}
 
-	return domainfeegrant.NewFeeAllowance(granter, grantee, spendLimit, expiry, enc)
+	return genesisfeegrant.NewFeeAllowance(granter, grantee, spendLimit, expiry, enc)
 }

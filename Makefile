@@ -12,8 +12,8 @@ GOFLAGS         := CGO_ENABLED=$(CGO_ENABLED)
 VERSION         := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_FLAGS     := -trimpath -ldflags="-s -w -X 'github.com/ny4rl4th0t3p/cosmos-genesis-tool/cmd/gentool/cmd.Version=$(VERSION)'"
 
-# Packages used by the various test targets
-UNIT_PKGS       := ./internal/... ./cmd/...
+# Packages used by the various test targets (all Go packages: internal, cmd, pkg)
+UNIT_PKGS       := ./...
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Default target
@@ -112,6 +112,7 @@ tidy-check: ## Check that go.mod and go.sum are tidy (exits non-zero if not)
 
 .PHONY: lint
 lint: ## Run golangci-lint (report only — used by check/CI)
+	golangci-lint cache clean
 	golangci-lint run
 
 .PHONY: lint-fix

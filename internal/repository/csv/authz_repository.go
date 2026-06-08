@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	domainauthz "github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/authz"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	genesisauthz "github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/authz"
 )
 
 type AuthzGrantRepository struct {
@@ -19,8 +19,8 @@ func NewCSVAuthzGrantRepository(filePath string, moduleAddresses map[string]bool
 	return &AuthzGrantRepository{filePath: filePath, moduleAddresses: moduleAddresses}
 }
 
-func (r *AuthzGrantRepository) GetAuthzGrants(ctx context.Context, enc encoding.EncodingConfig) ([]domainauthz.AuthzGrant, error) {
-	var grants []domainauthz.AuthzGrant
+func (r *AuthzGrantRepository) GetAuthzGrants(ctx context.Context, enc encoding.EncodingConfig) ([]genesisauthz.AuthzGrant, error) {
+	var grants []genesisauthz.AuthzGrant
 	err := readCSVRecords(ctx, r.filePath, r.moduleAddresses, -1, func(record []string) error {
 		g, err := parseAuthzGrantRecord(record, enc)
 		if err != nil {
@@ -32,7 +32,7 @@ func (r *AuthzGrantRepository) GetAuthzGrants(ctx context.Context, enc encoding.
 	return grants, err
 }
 
-func parseAuthzGrantRecord(record []string, enc encoding.EncodingConfig) (*domainauthz.AuthzGrant, error) {
+func parseAuthzGrantRecord(record []string, enc encoding.EncodingConfig) (*genesisauthz.AuthzGrant, error) {
 	if len(record) < 3 || len(record) > 4 {
 		return nil, fmt.Errorf("expected 3 or 4 fields, got %d", len(record))
 	}
@@ -49,5 +49,5 @@ func parseAuthzGrantRecord(record []string, enc encoding.EncodingConfig) (*domai
 		expiry = v
 	}
 
-	return domainauthz.NewAuthzGrant(granter, grantee, msgTypeURL, expiry, enc)
+	return genesisauthz.NewAuthzGrant(granter, grantee, msgTypeURL, expiry, enc)
 }

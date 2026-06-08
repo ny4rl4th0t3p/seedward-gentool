@@ -1,4 +1,4 @@
-package vesting_account_test
+package vestingaccount_test
 
 import (
 	"os"
@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/vesting_account"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/vestingaccount"
 )
 
 const testHRP = "cosmos"
@@ -38,7 +38,7 @@ func testAddr(i byte) string {
 }
 
 func TestNewClaim_Valid(t *testing.T) {
-	claim, err := vesting_account.NewClaim(testAddr(1), 1000, "", testEncodingConfig)
+	claim, err := vestingaccount.NewClaim(testAddr(1), 1000, "", testEncodingConfig)
 	require.NoError(t, err)
 	assert.Equal(t, testAddr(1), claim.Address())
 	assert.Equal(t, int64(1000), claim.Amount())
@@ -47,33 +47,33 @@ func TestNewClaim_Valid(t *testing.T) {
 
 func TestNewClaim_WithDelegate(t *testing.T) {
 	delegate := testAddr(99)
-	claim, err := vesting_account.NewClaim(testAddr(1), 5000, delegate, testEncodingConfig)
+	claim, err := vestingaccount.NewClaim(testAddr(1), 5000, delegate, testEncodingConfig)
 	require.NoError(t, err)
 	assert.Equal(t, delegate, claim.DelegateTo())
 }
 
 func TestNewClaim_InvalidAddress(t *testing.T) {
-	_, err := vesting_account.NewClaim("bad-address", 1000, "", testEncodingConfig)
-	require.ErrorIs(t, err, vesting_account.ErrInvalidClaim)
+	_, err := vestingaccount.NewClaim("bad-address", 1000, "", testEncodingConfig)
+	require.ErrorIs(t, err, vestingaccount.ErrInvalidClaim)
 }
 
 func TestNewClaim_EmptyAddress(t *testing.T) {
-	_, err := vesting_account.NewClaim("", 1000, "", testEncodingConfig)
-	require.ErrorIs(t, err, vesting_account.ErrInvalidClaim)
+	_, err := vestingaccount.NewClaim("", 1000, "", testEncodingConfig)
+	require.ErrorIs(t, err, vestingaccount.ErrInvalidClaim)
 }
 
 func TestNewClaim_ZeroAmount(t *testing.T) {
-	_, err := vesting_account.NewClaim(testAddr(2), 0, "", testEncodingConfig)
-	require.ErrorIs(t, err, vesting_account.ErrInvalidClaim)
+	_, err := vestingaccount.NewClaim(testAddr(2), 0, "", testEncodingConfig)
+	require.ErrorIs(t, err, vestingaccount.ErrInvalidClaim)
 }
 
 func TestNewClaim_NegativeAmount(t *testing.T) {
-	_, err := vesting_account.NewClaim(testAddr(2), -100, "", testEncodingConfig)
-	require.ErrorIs(t, err, vesting_account.ErrInvalidClaim)
+	_, err := vestingaccount.NewClaim(testAddr(2), -100, "", testEncodingConfig)
+	require.ErrorIs(t, err, vestingaccount.ErrInvalidClaim)
 }
 
 func TestNewClaim_MinimalValidAmount(t *testing.T) {
-	claim, err := vesting_account.NewClaim(testAddr(3), 1, "", testEncodingConfig)
+	claim, err := vestingaccount.NewClaim(testAddr(3), 1, "", testEncodingConfig)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), claim.Amount())
 }

@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/vesting_account"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/vestingaccount"
 )
 
 const testHRP = "cosmos"
@@ -42,7 +42,7 @@ func (s stubVestingAcct) Amount() int64      { return s.amount }
 func (s stubVestingAcct) DelegateTo() string { return s.delegateTo }
 
 // ensure stubVestingAcct satisfies the interface at compile time
-var _ vesting_account.VestingAccount = stubVestingAcct{}
+var _ vestingaccount.VestingAccount = stubVestingAcct{}
 
 // testAccAddr returns a raw sdk.AccAddress for test index i.
 func testAccAddr(i byte) sdk.AccAddress {

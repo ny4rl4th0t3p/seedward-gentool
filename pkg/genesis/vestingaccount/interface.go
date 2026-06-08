@@ -1,4 +1,4 @@
-package vesting_account
+package vestingaccount
 
 type VestingAccount interface {
 	Address() string

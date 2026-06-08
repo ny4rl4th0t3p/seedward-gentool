@@ -16,9 +16,9 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/validator"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/validator"
 )
 
 // defaultNonStakedAmount is the fallback liquid reserve (base denom) kept on each

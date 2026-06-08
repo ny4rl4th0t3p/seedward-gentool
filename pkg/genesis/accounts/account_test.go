@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/accounts"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/accounts"
 )
 
 const testHRP = "cosmos"
@@ -63,7 +63,7 @@ func TestNewInitialAccount_ZeroAmount(t *testing.T) {
 }
 
 func TestNewInitialAccount_NegativeAmount(t *testing.T) {
-	// Negative amounts are permitted at construction — domain only validates address
+	// Negative amounts are permitted at construction — only validates address
 	acc, err := accounts.NewInitialAccount(testAddr(3), -1, testEncodingConfig)
 	require.NoError(t, err)
 	assert.Equal(t, int64(-1), acc.Amount())

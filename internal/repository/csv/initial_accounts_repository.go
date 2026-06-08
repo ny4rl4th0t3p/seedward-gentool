@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/accounts"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/accounts"
 )
 
 type InitialAccountsRepository struct {

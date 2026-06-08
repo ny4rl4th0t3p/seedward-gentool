@@ -11,24 +11,24 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	domainauthz "github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/authz"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	genesisauthz "github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/authz"
 )
 
 type stubAuthzGrantRepo struct {
-	grants []domainauthz.AuthzGrant
+	grants []genesisauthz.AuthzGrant
 	err    error
 }
 
-func (s stubAuthzGrantRepo) GetAuthzGrants(_ context.Context, _ encoding.EncodingConfig) ([]domainauthz.AuthzGrant, error) {
+func (s stubAuthzGrantRepo) GetAuthzGrants(_ context.Context, _ encoding.EncodingConfig) ([]genesisauthz.AuthzGrant, error) {
 	return s.grants, s.err
 }
 
-func makeAuthzGrant(t *testing.T, ec encoding.EncodingConfig, granterIdx, granteeIdx byte, msgType string, expiry int64) domainauthz.AuthzGrant {
+func makeAuthzGrant(t *testing.T, ec encoding.EncodingConfig, granterIdx, granteeIdx byte, msgType string, expiry int64) genesisauthz.AuthzGrant {
 	t.Helper()
 	granter := testAccAddr(granterIdx).String()
 	grantee := testAccAddr(granteeIdx).String()
-	g, err := domainauthz.NewAuthzGrant(granter, grantee, msgType, expiry, ec)
+	g, err := genesisauthz.NewAuthzGrant(granter, grantee, msgType, expiry, ec)
 	require.NoError(t, err)
 	return *g
 }
@@ -86,7 +86,7 @@ func TestSetAuthzState_PopulatedGrants_WrittenToGenesis(t *testing.T) {
 	g2 := makeAuthzGrant(t, ec, 3, 4, "/cosmos.staking.v1beta1.MsgDelegate", 1900000000)
 
 	appGenState := authzAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: []domainauthz.AuthzGrant{g1, g2}}}
+	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: []genesisauthz.AuthzGrant{g1, g2}}}
 
 	require.NoError(t, asm.setAuthzState(context.Background(), appGenState))
 
@@ -104,7 +104,7 @@ func TestSetAuthzState_GenericAuthorization_TypeURLContainsGeneric(t *testing.T)
 	g := makeAuthzGrant(t, ec, 1, 2, "/cosmos.bank.v1beta1.MsgSend", 0)
 
 	appGenState := authzAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: []domainauthz.AuthzGrant{g}}}
+	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: []genesisauthz.AuthzGrant{g}}}
 
 	require.NoError(t, asm.setAuthzState(context.Background(), appGenState))
 

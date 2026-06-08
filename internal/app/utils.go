@@ -19,8 +19,8 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/vesting_account"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/vestingaccount"
 )
 
 const (
@@ -144,7 +144,7 @@ func updateModuleState(
 }
 
 func AddCustomVestingGenesisAccount(
-	vestingAccount vesting_account.VestingAccount,
+	vestingAccount vestingaccount.VestingAccount,
 	accAddr sdk.AccAddress,
 	vestingStart, vestingEnd int64,
 	hrp, denom string,
@@ -176,7 +176,7 @@ func AddCustomVestingGenesisAccount(
 }
 
 func createVestingAccount(
-	vestingAccount vesting_account.VestingAccount,
+	vestingAccount vestingaccount.VestingAccount,
 	accAddr sdk.AccAddress,
 	vestingStart, vestingEnd int64,
 	denom string,
@@ -229,7 +229,7 @@ func createVestingAccount(
 }
 
 func allocateDelegatedFunds(
-	vestingAccount vesting_account.VestingAccount,
+	vestingAccount vestingaccount.VestingAccount,
 	addr sdk.AccAddress,
 	accAddr sdk.AccAddress,
 	balances banktypes.Balance,
