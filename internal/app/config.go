@@ -24,8 +24,12 @@ type ChainConfig struct {
 	BondDenom     string
 
 	// Supply
-	TotalSupply      int64
-	NonStakedPortion int64 // 0 → default NonStakedPortion const
+	TotalSupply int64
+	// NonStakedAmount is the absolute base-denom liquid reserve left un-delegated
+	// on each delegating account, so it retains a spendable balance to pay gas
+	// (undelegate, vote, withdraw rewards). It is a fixed amount, NOT a percentage.
+	// 0 or unset → defaultNonStakedAmount. A delegating claim's amount must exceed it.
+	NonStakedAmount int64
 
 	// Vesting windows (unix timestamps; 0 means unset)
 	ClaimsVestingEnd   int64
@@ -74,10 +78,10 @@ type ChainConfig struct {
 	CommunityPoolAmount int64
 }
 
-// NonStaked returns the non-staked portion, falling back to the default when unset.
+// NonStaked returns the effective liquid reserve, falling back to the default when unset.
 func (c ChainConfig) NonStaked() int64 {
-	if c.NonStakedPortion > 0 {
-		return c.NonStakedPortion
+	if c.NonStakedAmount > 0 {
+		return c.NonStakedAmount
 	}
-	return NonStakedPortion
+	return defaultNonStakedAmount
 }

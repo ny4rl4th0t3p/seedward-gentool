@@ -112,6 +112,19 @@ func TestFetchValidatorsShares_Overflow_ReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "overflow")
 }
 
+func TestFetchValidatorsShares_AmountAtOrBelowReserve_ReturnsError(t *testing.T) {
+	ec := encoding.NewEncodingConfig()
+	v1 := testValidator(t, 1)
+	// amount == default reserve (100_000) → no positive stake possible.
+	claims := []vesting_account.Claim{
+		makeClaim(t, ec, 74, 100_000, v1.OperatorAddress()),
+	}
+	acc := Accounts{claimRepository: stubClaimRepo{claims: claims}}
+	_, err := acc.fetchValidatorsShares(ec)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must exceed")
+}
+
 func TestBuildValidatorReference_Normal(t *testing.T) {
 	v1 := testValidator(t, 1)
 	v2 := testValidator(t, 2)

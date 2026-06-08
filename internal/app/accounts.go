@@ -21,7 +21,9 @@ import (
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository"
 )
 
-const NonStakedPortion = 100000
+// defaultNonStakedAmount is the fallback liquid reserve (base denom) kept on each
+// delegating account when accounts.non_staked_amount is unset. See ChainConfig.NonStakedAmount.
+const defaultNonStakedAmount = 100_000
 
 type Accounts struct {
 	cfg                 ChainConfig
@@ -53,11 +55,17 @@ func (va Accounts) fetchValidatorsShares(encodingConfig encoding.EncodingConfig)
 	if err != nil {
 		return nil, err
 	}
-	nonStakedPortion := va.cfg.NonStaked()
+	reserve := va.cfg.NonStaked()
 	for _, claim := range claims {
 		if claim.DelegateTo() != "" {
-			delta := claim.Amount() - nonStakedPortion
-			if delta > 0 && shares[claim.DelegateTo()] > stdmath.MaxInt64-delta {
+			if claim.Amount() <= reserve {
+				return nil, fmt.Errorf(
+					"claim %s delegating to %s: amount %d must exceed the non_staked_amount reserve %d",
+					claim.Address(), claim.DelegateTo(), claim.Amount(), reserve,
+				)
+			}
+			delta := claim.Amount() - reserve
+			if shares[claim.DelegateTo()] > stdmath.MaxInt64-delta {
 				return nil, fmt.Errorf("share accumulation overflow for validator %q", claim.DelegateTo())
 			}
 			shares[claim.DelegateTo()] += delta
@@ -146,7 +154,7 @@ func (va Accounts) appendVestingAccounts(
 	sort.SliceStable(claims, func(i, j int) bool {
 		return claims[i].Address() < claims[j].Address()
 	})
-	nonStakedPortion := va.cfg.NonStaked()
+	reserve := va.cfg.NonStaked()
 	for _, claim := range claims {
 		addr, err := encodingConfig.TxConfig.SigningContext().AddressCodec().StringToBytes(claim.Address())
 		if err != nil {
@@ -154,7 +162,7 @@ func (va Accounts) appendVestingAccounts(
 		}
 		accs, err = AddCustomVestingGenesisAccount(
 			claim, addr, 0, va.cfg.ClaimsVestingEnd,
-			hrp, denom, nonStakedPortion, encodingConfig, accs, bankGenState, true,
+			hrp, denom, reserve, encodingConfig, accs, bankGenState, true,
 		)
 		if err != nil {
 			slog.Error(err.Error())
@@ -167,7 +175,7 @@ func (va Accounts) appendVestingAccounts(
 			delegations = append(delegations, stakingtypes.Delegation{
 				DelegatorAddress: claim.Address(),
 				ValidatorAddress: validatorsReference[claim.DelegateTo()].OperatorAddress,
-				Shares:           math.LegacyNewDec(claim.Amount() - nonStakedPortion),
+				Shares:           math.LegacyNewDec(claim.Amount() - reserve),
 			})
 		}
 	}
@@ -182,7 +190,7 @@ func (va Accounts) appendVestingAccounts(
 			grant, addr,
 			va.cfg.GrantsVestingStart,
 			va.cfg.GrantsVestingEnd,
-			hrp, denom, nonStakedPortion, encodingConfig, accs, bankGenState, false,
+			hrp, denom, reserve, encodingConfig, accs, bankGenState, false,
 		)
 		if err != nil {
 			return nil, err

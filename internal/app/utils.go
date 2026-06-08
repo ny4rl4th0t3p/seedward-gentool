@@ -148,13 +148,13 @@ func AddCustomVestingGenesisAccount(
 	accAddr sdk.AccAddress,
 	vestingStart, vestingEnd int64,
 	hrp, denom string,
-	nonStakedPortion int64,
+	nonStakedReserve int64,
 	encodingConfig encoding.EncodingConfig,
 	accs authtypes.GenesisAccounts,
 	bankGenState *banktypes.GenesisState,
 	appendAcct bool,
 ) (authtypes.GenesisAccounts, error) {
-	genAccount, balances, err := createVestingAccount(vestingAccount, accAddr, vestingStart, vestingEnd, denom, nonStakedPortion)
+	genAccount, balances, err := createVestingAccount(vestingAccount, accAddr, vestingStart, vestingEnd, denom, nonStakedReserve)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func AddCustomVestingGenesisAccount(
 	}
 
 	if err := allocateDelegatedFunds(
-		vestingAccount, addr, accAddr, balances, hrp, encodingConfig, bankGenState, appendAcct, denom, nonStakedPortion,
+		vestingAccount, addr, accAddr, balances, hrp, encodingConfig, bankGenState, appendAcct, denom, nonStakedReserve,
 	); err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func createVestingAccount(
 	accAddr sdk.AccAddress,
 	vestingStart, vestingEnd int64,
 	denom string,
-	nonStakedPortion int64,
+	nonStakedReserve int64,
 ) (authtypes.GenesisAccount, banktypes.Balance, error) {
 	coins, err := sdk.ParseCoinsNormalized(strconv.FormatInt(vestingAccount.Amount(), 10) + denom)
 	if err != nil {
@@ -198,9 +198,17 @@ func createVestingAccount(
 	}
 
 	if vestingAccount.DelegateTo() != "" {
+		// A delegating account must keep a liquid reserve; without it the Sub below
+		// would go negative (panic), and the account would have no balance to pay gas.
+		if vestingAccount.Amount() <= nonStakedReserve {
+			return nil, banktypes.Balance{}, fmt.Errorf(
+				"vesting account %s delegating to %s: amount %d must exceed the non_staked_amount reserve %d",
+				vestingAccount.Address(), vestingAccount.DelegateTo(), vestingAccount.Amount(), nonStakedReserve,
+			)
+		}
 		baseVestingAccount.DelegatedVesting = baseVestingAccount.GetOriginalVesting().Sub(sdk.Coin{
 			Denom:  denom,
-			Amount: math.NewInt(nonStakedPortion),
+			Amount: math.NewInt(nonStakedReserve),
 		})
 	}
 
@@ -230,7 +238,7 @@ func allocateDelegatedFunds(
 	bankGenState *banktypes.GenesisState,
 	appendAcct bool,
 	denom string,
-	nonStakedPortion int64,
+	nonStakedReserve int64,
 ) error {
 	if vestingAccount.DelegateTo() == "" {
 		return updateBalances(addr, balances, balances.Coins, bankGenState, appendAcct)
@@ -244,7 +252,7 @@ func allocateDelegatedFunds(
 	if err != nil {
 		return err
 	}
-	unstakedCoin := sdk.Coin{Denom: denom, Amount: math.NewInt(nonStakedPortion)}
+	unstakedCoin := sdk.Coin{Denom: denom, Amount: math.NewInt(nonStakedReserve)}
 	stakedCoins := balances.Coins.Sub(unstakedCoin)
 	if err := updateBalances(bondedModuleAddr, balances, stakedCoins, bankGenState, appendAcct); err != nil {
 		return err

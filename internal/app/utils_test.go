@@ -243,8 +243,18 @@ func TestCreateVestingAccount_WithDelegation_SetsDelegatedVesting(t *testing.T) 
 	require.NoError(t, err)
 	dva, ok := acc.(*authvesting.DelayedVestingAccount)
 	require.True(t, ok)
-	// DelegatedVesting = amount - nonStakedPortion
+	// DelegatedVesting = amount - nonStakedReserve
 	assert.Equal(t, int64(900_000), dva.DelegatedVesting.AmountOf("uatom").Int64())
+}
+
+func TestCreateVestingAccount_DelegatingAtOrBelowReserve_ReturnsError(t *testing.T) {
+	_, _, err := createVestingAccount(
+		stubVestingAcct{amount: 100_000, delegateTo: "some-validator"}, // amount == reserve
+		testAccAddr(35), 0, time.Now().Unix(),
+		"uatom", 100_000,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must exceed")
 }
 
 // --- allocateDelegatedFunds ---

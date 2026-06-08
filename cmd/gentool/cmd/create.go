@@ -118,8 +118,8 @@ func buildChainConfig(hrp string) app.ChainConfig {
 		AddressPrefix: hrp,
 		BondDenom:     viper.GetString("default_bond_denom"),
 
-		TotalSupply:      viper.GetInt64("accounts.total_supply"),
-		NonStakedPortion: viper.GetInt64("accounts.non_staked_portion"),
+		TotalSupply:     viper.GetInt64("accounts.total_supply"),
+		NonStakedAmount: viper.GetInt64("accounts.non_staked_amount"),
 
 		ClaimsVestingEnd:   viper.GetInt64("claims.vesting.end_date"),
 		GrantsVestingStart: viper.GetInt64("grants.vesting.start_date"),
