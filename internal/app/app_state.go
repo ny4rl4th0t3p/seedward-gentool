@@ -11,17 +11,17 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 )
 
 type StateManager struct {
-	claimRepository        repository.ClaimRepository
-	grantRepository        repository.GrantRepository
-	initialAccountsRepo    repository.InitialAccountsRepository
-	validatorRepository    repository.ValidatorRepository
-	authzGrantRepository   repository.AuthzGrantRepository
-	feeAllowanceRepository repository.FeeAllowanceRepository
+	claimRepository        genesis.ClaimRepository
+	grantRepository        genesis.GrantRepository
+	initialAccountsRepo    genesis.InitialAccountsRepository
+	validatorRepository    genesis.ValidatorRepository
+	authzGrantRepository   genesis.AuthzGrantRepository
+	feeAllowanceRepository genesis.FeeAllowanceRepository
 	accounts               *Accounts
 	appGenState            map[string]json.RawMessage
 	appGenesis             *genutiltypes.AppGenesis
@@ -32,12 +32,12 @@ type StateManager struct {
 
 func NewAppStateManager(
 	cfg ChainConfig,
-	claimRepository repository.ClaimRepository,
-	grantRepository repository.GrantRepository,
-	initialAccountsRepo repository.InitialAccountsRepository,
-	validatorRepository repository.ValidatorRepository,
-	authzGrantRepository repository.AuthzGrantRepository,
-	feeAllowanceRepository repository.FeeAllowanceRepository,
+	claimRepository genesis.ClaimRepository,
+	grantRepository genesis.GrantRepository,
+	initialAccountsRepo genesis.InitialAccountsRepository,
+	validatorRepository genesis.ValidatorRepository,
+	authzGrantRepository genesis.AuthzGrantRepository,
+	feeAllowanceRepository genesis.FeeAllowanceRepository,
 	appGenState map[string]json.RawMessage,
 	appGenesis *genutiltypes.AppGenesis,
 	encodingConfig encoding.EncodingConfig,

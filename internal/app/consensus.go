@@ -11,7 +11,7 @@ import (
 	comettypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis"
 )
 
 const (
@@ -28,12 +28,12 @@ const (
 type Consensus struct {
 	appGenesis *types.AppGenesis
 	codec      address.Codec
-	repo       repository.ValidatorRepository
+	repo       genesis.ValidatorRepository
 	shares     map[string]int64
 }
 
 func NewConsensus(
-	repo repository.ValidatorRepository, appGenesis *types.AppGenesis, codec address.Codec, shares map[string]int64,
+	repo genesis.ValidatorRepository, appGenesis *types.AppGenesis, codec address.Codec, shares map[string]int64,
 ) *Consensus {
 	return &Consensus{
 		appGenesis: appGenesis,

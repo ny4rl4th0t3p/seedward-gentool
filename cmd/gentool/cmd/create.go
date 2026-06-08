@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/app"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository/csv"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository/gentx"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/csv"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/gentx"
 )
 
 const flagInputGenesis = "input-genesis"
@@ -55,11 +55,11 @@ var createCmd = &cobra.Command{
 		validatorsRepository := gentx.NewValidatorRepository(viper.GetString("validators.gentx_dir"))
 
 		// authz/feegrant are optional: a nil repository signals "module not configured".
-		var authzGrantRepository repository.AuthzGrantRepository
+		var authzGrantRepository genesis.AuthzGrantRepository
 		if viper.IsSet("authz.file_name") {
 			authzGrantRepository = csv.NewCSVAuthzGrantRepository(viper.GetString("authz.file_name"), moduleAddresses)
 		}
-		var feeAllowanceRepository repository.FeeAllowanceRepository
+		var feeAllowanceRepository genesis.FeeAllowanceRepository
 		if viper.IsSet("feegrant.file_name") {
 			feeAllowanceRepository = csv.NewCSVFeeAllowanceRepository(viper.GetString("feegrant.file_name"), moduleAddresses)
 		}
