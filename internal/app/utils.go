@@ -18,24 +18,19 @@ import (
 	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	"github.com/spf13/viper"
 
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/vesting_account"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
 )
 
 const (
-	ChainIDKey       = "chain.id"
-	NameKey          = "app.name"
-	VersionKey       = "app.version"
-	GenesisTimeKey   = "app.genesis_time"
-	InitialHeightKey = "chain.initial_height"
-
 	InvalidVestingErr = "invalid vesting parameters; must supply start and end time or end time"
 )
 
 // Set sdk.GetConfig() bech32 prefixes and sdk.DefaultBondDenom before calling this.
-func LoadGenesis(path string) (encoding.EncodingConfig, client.Context, map[string]json.RawMessage, *genutiltypes.AppGenesis, error) {
+func LoadGenesis(
+	path string, cfg ChainConfig,
+) (encoding.EncodingConfig, client.Context, map[string]json.RawMessage, *genutiltypes.AppGenesis, error) {
 	encodingConfig := encoding.NewEncodingConfig()
 
 	appState, appGenesis, err := genutiltypes.GenesisStateFromGenFile(path)
@@ -44,11 +39,11 @@ func LoadGenesis(path string) (encoding.EncodingConfig, client.Context, map[stri
 	}
 
 	// Override genesis metadata from config; the baseline file values are ignored.
-	appGenesis.GenesisTime = time.Unix(viper.GetInt64(GenesisTimeKey), 0).UTC()
-	appGenesis.AppName = viper.GetString(NameKey)
-	appGenesis.AppVersion = viper.GetString(VersionKey)
-	appGenesis.ChainID = viper.GetString(ChainIDKey)
-	appGenesis.InitialHeight = viper.GetInt64(InitialHeightKey)
+	appGenesis.GenesisTime = time.Unix(cfg.GenesisTime, 0).UTC()
+	appGenesis.AppName = cfg.AppName
+	appGenesis.AppVersion = cfg.AppVersion
+	appGenesis.ChainID = cfg.ChainID
+	appGenesis.InitialHeight = cfg.InitialHeight
 
 	clientCtx := client.Context{}.
 		WithCodec(encodingConfig.Codec).
@@ -59,7 +54,7 @@ func LoadGenesis(path string) (encoding.EncodingConfig, client.Context, map[stri
 		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithHomeDir(".").
 		WithViper("").
-		WithChainID(viper.GetString(ChainIDKey))
+		WithChainID(cfg.ChainID)
 
 	return encodingConfig, clientCtx, appState, appGenesis, nil
 }
@@ -152,15 +147,13 @@ func AddCustomVestingGenesisAccount(
 	vestingAccount vesting_account.VestingAccount,
 	accAddr sdk.AccAddress,
 	vestingStart, vestingEnd int64,
-	hrp string,
+	hrp, denom string,
+	nonStakedPortion int64,
 	encodingConfig encoding.EncodingConfig,
 	accs authtypes.GenesisAccounts,
 	bankGenState *banktypes.GenesisState,
 	appendAcct bool,
 ) (authtypes.GenesisAccounts, error) {
-	denom := viper.GetString("default_bond_denom")
-	nonStakedPortion := getNonStakedPortion()
-
 	genAccount, balances, err := createVestingAccount(vestingAccount, accAddr, vestingStart, vestingEnd, denom, nonStakedPortion)
 	if err != nil {
 		return nil, err

@@ -9,11 +9,10 @@ import (
 	feegranttypes "cosmossdk.io/x/feegrant"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/spf13/viper"
 )
 
 func (asm StateManager) setFeegrantState(ctx context.Context, appGenState map[string]json.RawMessage) error {
-	if !viper.IsSet("feegrant.file_name") {
+	if asm.feeAllowanceRepository == nil {
 		return nil
 	}
 
@@ -25,7 +24,7 @@ func (asm StateManager) setFeegrantState(ctx context.Context, appGenState map[st
 		return nil
 	}
 
-	denom := viper.GetString("default_bond_denom")
+	denom := asm.cfg.BondDenom
 
 	var genAllowances []feegranttypes.Grant
 	for _, a := range allowances {

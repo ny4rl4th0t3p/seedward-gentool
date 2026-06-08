@@ -6,7 +6,6 @@ import (
 	"time"
 
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -38,15 +37,8 @@ func TestFixGovernanceParameters_NoViperKeys_NoChange(t *testing.T) {
 }
 
 func TestFixGovernanceParameters_MinDeposit(t *testing.T) {
-	viper.Set("default_bond_denom", "uatom")
-	viper.Set("gov.min_deposit_amount", int64(500_000))
-	t.Cleanup(func() {
-		viper.Set("default_bond_denom", nil)
-		viper.Set("gov.min_deposit_amount", nil)
-	})
-
 	appGenState, ec := govAppState(t)
-	asm := StateManager{encodingConfig: ec}
+	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{BondDenom: "uatom", GovMinDepositAmount: 500_000}}
 	require.NoError(t, asm.fixGovernanceParameters(appGenState))
 
 	gs := readGovState(t, appGenState, ec)
@@ -56,11 +48,8 @@ func TestFixGovernanceParameters_MinDeposit(t *testing.T) {
 }
 
 func TestFixGovernanceParameters_VotingPeriod(t *testing.T) {
-	viper.Set("gov.voting_period", "72h")
-	t.Cleanup(func() { viper.Set("gov.voting_period", nil) })
-
 	appGenState, ec := govAppState(t)
-	asm := StateManager{encodingConfig: ec}
+	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{GovVotingPeriod: "72h"}}
 	require.NoError(t, asm.fixGovernanceParameters(appGenState))
 
 	gs := readGovState(t, appGenState, ec)
@@ -69,28 +58,20 @@ func TestFixGovernanceParameters_VotingPeriod(t *testing.T) {
 }
 
 func TestFixGovernanceParameters_InvalidVotingPeriod_ReturnsError(t *testing.T) {
-	viper.Set("gov.voting_period", "not-a-duration")
-	t.Cleanup(func() { viper.Set("gov.voting_period", nil) })
-
 	appGenState, ec := govAppState(t)
-	asm := StateManager{encodingConfig: ec}
+	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{GovVotingPeriod: "not-a-duration"}}
 	err := asm.fixGovernanceParameters(appGenState)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid gov.voting_period")
 }
 
 func TestFixGovernanceParameters_ExpeditedParams(t *testing.T) {
-	viper.Set("default_bond_denom", "uatom")
-	viper.Set("gov.expedited_min_deposit_amount", int64(1_000_000))
-	viper.Set("gov.expedited_voting_period", "24h")
-	t.Cleanup(func() {
-		viper.Set("default_bond_denom", nil)
-		viper.Set("gov.expedited_min_deposit_amount", nil)
-		viper.Set("gov.expedited_voting_period", nil)
-	})
-
 	appGenState, ec := govAppState(t)
-	asm := StateManager{encodingConfig: ec}
+	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{
+		BondDenom:                    "uatom",
+		GovExpeditedMinDepositAmount: 1_000_000,
+		GovExpeditedVotingPeriod:     "24h",
+	}}
 	require.NoError(t, asm.fixGovernanceParameters(appGenState))
 
 	gs := readGovState(t, appGenState, ec)

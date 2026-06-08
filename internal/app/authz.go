@@ -8,11 +8,10 @@ import (
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	authztypes "github.com/cosmos/cosmos-sdk/x/authz"
-	"github.com/spf13/viper"
 )
 
 func (asm StateManager) setAuthzState(ctx context.Context, appGenState map[string]json.RawMessage) error {
-	if !viper.IsSet("authz.file_name") {
+	if asm.authzGrantRepository == nil {
 		return nil
 	}
 

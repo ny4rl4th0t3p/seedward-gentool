@@ -9,7 +9,6 @@ import (
 	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-	"github.com/spf13/viper"
 )
 
 const valconsHRPSuffix = "valcons"
@@ -20,24 +19,24 @@ func (asm StateManager) setSlashingState(appGenState map[string]json.RawMessage)
 		return err
 	}
 
-	hrp := viper.GetString("chain.address_prefix")
+	hrp := asm.cfg.AddressPrefix
 	valconsHRP := hrp + valconsHRPSuffix
 
 	var slashingGenState slashingtypes.GenesisState
 	return updateModuleState(asm.encodingConfig.Codec, appGenState, "slashing", &slashingGenState, func() error {
-		if v := viper.GetInt64("slashing.signed_blocks_window"); v > 0 {
+		if v := asm.cfg.SignedBlocksWindow; v > 0 {
 			slashingGenState.Params.SignedBlocksWindow = v
 		}
-		if v := viper.GetString("slashing.min_signed_per_window"); v != "" {
+		if v := asm.cfg.MinSignedPerWindow; v != "" {
 			slashingGenState.Params.MinSignedPerWindow = math.LegacyMustNewDecFromStr(v)
 		}
-		if v := viper.GetInt64("slashing.downtime_jail_duration_seconds"); v > 0 {
+		if v := asm.cfg.DowntimeJailDurationSeconds; v > 0 {
 			slashingGenState.Params.DowntimeJailDuration = time.Duration(v) * time.Second
 		}
-		if v := viper.GetString("slashing.slash_fraction_double_sign"); v != "" {
+		if v := asm.cfg.SlashFractionDoubleSign; v != "" {
 			slashingGenState.Params.SlashFractionDoubleSign = math.LegacyMustNewDecFromStr(v)
 		}
-		if v := viper.GetString("slashing.slash_fraction_downtime"); v != "" {
+		if v := asm.cfg.SlashFractionDowntime; v != "" {
 			slashingGenState.Params.SlashFractionDowntime = math.LegacyMustNewDecFromStr(v)
 		}
 

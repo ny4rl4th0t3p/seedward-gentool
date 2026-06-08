@@ -7,11 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/cometbft/cometbft/config"
 	"github.com/cosmos/cosmos-sdk/client"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/spf13/viper"
 
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/repository"
@@ -28,11 +26,12 @@ type StateManager struct {
 	appGenState            map[string]json.RawMessage
 	appGenesis             *genutiltypes.AppGenesis
 	encodingConfig         encoding.EncodingConfig
-	config                 *config.Config
 	clientCtx              client.Context
+	cfg                    ChainConfig
 }
 
 func NewAppStateManager(
+	cfg ChainConfig,
 	claimRepository repository.ClaimRepository,
 	grantRepository repository.GrantRepository,
 	initialAccountsRepo repository.InitialAccountsRepository,
@@ -42,7 +41,6 @@ func NewAppStateManager(
 	appGenState map[string]json.RawMessage,
 	appGenesis *genutiltypes.AppGenesis,
 	encodingConfig encoding.EncodingConfig,
-	cfg *config.Config,
 	clientCtx client.Context,
 ) *StateManager {
 	return &StateManager{
@@ -52,18 +50,16 @@ func NewAppStateManager(
 		validatorRepository:    validatorRepository,
 		authzGrantRepository:   authzGrantRepository,
 		feeAllowanceRepository: feeAllowanceRepository,
-		accounts:               NewAccounts(claimRepository, grantRepository, initialAccountsRepo, validatorRepository),
+		accounts:               NewAccounts(cfg, claimRepository, grantRepository, initialAccountsRepo, validatorRepository),
 		appGenState:            appGenState,
 		appGenesis:             appGenesis,
 		encodingConfig:         encodingConfig,
-		config:                 cfg,
 		clientCtx:              clientCtx,
+		cfg:                    cfg,
 	}
 }
 
-func (asm StateManager) SetupAppState(ctx context.Context) (*genutiltypes.AppGenesis, map[string]int64, error) {
-	outputPath := viper.GetString("genesis.output")
-
+func (asm StateManager) SetupAppState(ctx context.Context, outputPath string) (*genutiltypes.AppGenesis, map[string]int64, error) {
 	slog.Info("Fixing governance parameters...")
 	if err := asm.fixGovernanceParameters(asm.appGenState); err != nil {
 		return nil, nil, err
@@ -114,7 +110,7 @@ func (asm StateManager) SetupAppState(ctx context.Context) (*genutiltypes.AppGen
 	}
 
 	slog.Info("Saving final genesis file...")
-	genesisTime := time.Unix(viper.GetInt64(GenesisTimeKey), 0).UTC()
+	genesisTime := time.Unix(asm.cfg.GenesisTime, 0).UTC()
 	if err := saveGenesis(asm.appGenState, asm.appGenesis, genesisTime, outputPath); err != nil {
 		return nil, nil, err
 	}

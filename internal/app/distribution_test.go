@@ -9,7 +9,6 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,24 +16,25 @@ import (
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
 )
 
-func distributionStateManager(t *testing.T, validators []validator.Validator, repoErr error) StateManager {
+func distributionStateManager(t *testing.T, validators []validator.Validator, repoErr error, cfg ChainConfig) StateManager {
 	t.Helper()
 	ec := encoding.NewEncodingConfig()
 	return StateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: validators, err: repoErr},
+		cfg:                 cfg,
 	}
 }
 
 func TestSetDistribution_ValidatorRepoError(t *testing.T) {
 	sentinel := errors.New("repo fail")
-	asm := distributionStateManager(t, nil, sentinel)
+	asm := distributionStateManager(t, nil, sentinel, ChainConfig{})
 	err := asm.setDistribution(map[string]json.RawMessage{}, nil)
 	require.ErrorIs(t, err, sentinel)
 }
 
 func TestSetDistribution_NoValidators_EmptyRecords(t *testing.T) {
-	asm := distributionStateManager(t, nil, nil)
+	asm := distributionStateManager(t, nil, nil, ChainConfig{})
 	appGenState := map[string]json.RawMessage{}
 	require.NoError(t, asm.setDistribution(appGenState, nil))
 
@@ -47,11 +47,8 @@ func TestSetDistribution_NoValidators_EmptyRecords(t *testing.T) {
 }
 
 func TestSetDistribution_ValidatorSelfDelegation(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	v := testValidator(t, 1)
-	asm := distributionStateManager(t, []validator.Validator{v}, nil)
+	asm := distributionStateManager(t, []validator.Validator{v}, nil, ChainConfig{AddressPrefix: testHRP})
 	appGenState := map[string]json.RawMessage{}
 	require.NoError(t, asm.setDistribution(appGenState, nil))
 
@@ -70,9 +67,6 @@ func TestSetDistribution_ValidatorSelfDelegation(t *testing.T) {
 }
 
 func TestSetDistribution_WithDelegations_AddsExtraDelegatorInfos(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	v := testValidator(t, 2)
 	delegatorAddr := testAccAddr(50).String()
 	delegations := []stakingtypes.Delegation{
@@ -83,7 +77,7 @@ func TestSetDistribution_WithDelegations_AddsExtraDelegatorInfos(t *testing.T) {
 		},
 	}
 
-	asm := distributionStateManager(t, []validator.Validator{v}, nil)
+	asm := distributionStateManager(t, []validator.Validator{v}, nil, ChainConfig{AddressPrefix: testHRP})
 	appGenState := map[string]json.RawMessage{}
 	require.NoError(t, asm.setDistribution(appGenState, delegations))
 
@@ -102,19 +96,15 @@ func TestSetDistribution_WithDelegations_AddsExtraDelegatorInfos(t *testing.T) {
 
 func TestSetDistribution_CommunityPool_SetsFeepoolAndBank(t *testing.T) {
 	const poolAmt = int64(1_000_000)
-	viper.Set("distribution.community_pool_amount", poolAmt)
-	viper.Set("chain.address_prefix", testHRP)
-	viper.Set("default_bond_denom", "uatom")
-	t.Cleanup(func() {
-		viper.Set("distribution.community_pool_amount", nil)
-		viper.Set("chain.address_prefix", nil)
-		viper.Set("default_bond_denom", nil)
-	})
-
 	ec := encoding.NewEncodingConfig()
 	asm := StateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{},
+		cfg: ChainConfig{
+			AddressPrefix:       testHRP,
+			BondDenom:           "uatom",
+			CommunityPoolAmount: poolAmt,
+		},
 	}
 
 	bankState := banktypes.DefaultGenesisState()
@@ -146,7 +136,7 @@ func TestSetDistribution_CommunityPool_SetsFeepoolAndBank(t *testing.T) {
 }
 
 func TestSetDistribution_CommunityPool_Absent_BankUnchanged(t *testing.T) {
-	asm := distributionStateManager(t, nil, nil)
+	asm := distributionStateManager(t, nil, nil, ChainConfig{})
 
 	ec := encoding.NewEncodingConfig()
 	bankState := banktypes.DefaultGenesisState()
@@ -166,9 +156,6 @@ func TestSetDistribution_CommunityPool_Absent_BankUnchanged(t *testing.T) {
 }
 
 func TestSetDistribution_HistoricalRewardsReferenceCount(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	v := testValidator(t, 3)
 	delegations := []stakingtypes.Delegation{
 		{
@@ -178,7 +165,7 @@ func TestSetDistribution_HistoricalRewardsReferenceCount(t *testing.T) {
 		},
 	}
 
-	asm := distributionStateManager(t, []validator.Validator{v}, nil)
+	asm := distributionStateManager(t, []validator.Validator{v}, nil, ChainConfig{AddressPrefix: testHRP})
 	appGenState := map[string]json.RawMessage{}
 	require.NoError(t, asm.setDistribution(appGenState, delegations))
 

@@ -13,7 +13,6 @@ import (
 	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -359,20 +358,15 @@ func TestLoadGenesis_ReadsStateAndMetadata(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "genesis.json")
 	require.NoError(t, appGenesis.SaveAs(path))
 
-	viper.Set(ChainIDKey, "load-test-1")
-	viper.Set(NameKey, "testapp")
-	viper.Set(VersionKey, "v1.0.0")
-	viper.Set(GenesisTimeKey, int64(1_700_000_000))
-	viper.Set(InitialHeightKey, int64(1))
-	t.Cleanup(func() {
-		viper.Set(ChainIDKey, nil)
-		viper.Set(NameKey, nil)
-		viper.Set(VersionKey, nil)
-		viper.Set(GenesisTimeKey, nil)
-		viper.Set(InitialHeightKey, nil)
-	})
+	cfg := ChainConfig{
+		ChainID:       "load-test-1",
+		AppName:       "testapp",
+		AppVersion:    "v1.0.0",
+		GenesisTime:   1_700_000_000,
+		InitialHeight: 1,
+	}
 
-	loadedEC, clientCtx, appState, loadedGenesis, err := LoadGenesis(path)
+	loadedEC, clientCtx, appState, loadedGenesis, err := LoadGenesis(path, cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, loadedEC.Codec)
 	assert.NotNil(t, clientCtx.Codec)
@@ -382,7 +376,7 @@ func TestLoadGenesis_ReadsStateAndMetadata(t *testing.T) {
 }
 
 func TestLoadGenesis_NonExistentFile_ReturnsError(t *testing.T) {
-	_, _, _, _, err := LoadGenesis("/nonexistent/genesis.json") //nolint:dogsled // only error matters here
+	_, _, _, _, err := LoadGenesis("/nonexistent/genesis.json", ChainConfig{}) //nolint:dogsled // only error matters here
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read genesis file")
 }

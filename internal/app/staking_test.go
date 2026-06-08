@@ -8,7 +8,6 @@ import (
 
 	"cosmossdk.io/math"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -16,34 +15,28 @@ import (
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
 )
 
-func TestApplyStakingParams_OnlyBondDenom_WhenNoViperKeys(t *testing.T) {
+func TestApplyStakingParams_OnlyBondDenom_WhenNoConfigKeys(t *testing.T) {
 	params := stakingtypes.DefaultParams()
 	originalUnbonding := params.UnbondingTime
 	originalMaxVal := params.MaxValidators
 
-	applyStakingParams(&params, "uatom")
+	applyStakingParams(&params, ChainConfig{BondDenom: "uatom"})
 
 	assert.Equal(t, "uatom", params.BondDenom)
 	assert.Equal(t, originalUnbonding, params.UnbondingTime)
 	assert.Equal(t, originalMaxVal, params.MaxValidators)
 }
 
-func TestApplyStakingParams_AllViperKeys(t *testing.T) {
-	viper.Set("chain.unbonding_time_seconds", int64(86400))
-	viper.Set("chain.max_validators", uint32(150))
-	viper.Set("chain.max_entries", uint32(5))
-	viper.Set("chain.historical_entries", uint32(5000))
-	viper.Set("chain.min_commission_rate", "0.05")
-	t.Cleanup(func() {
-		viper.Set("chain.unbonding_time_seconds", nil)
-		viper.Set("chain.max_validators", nil)
-		viper.Set("chain.max_entries", nil)
-		viper.Set("chain.historical_entries", nil)
-		viper.Set("chain.min_commission_rate", nil)
-	})
-
+func TestApplyStakingParams_AllConfigKeys(t *testing.T) {
 	params := stakingtypes.DefaultParams()
-	applyStakingParams(&params, "ustake")
+	applyStakingParams(&params, ChainConfig{
+		BondDenom:            "ustake",
+		UnbondingTimeSeconds: 86400,
+		MaxValidators:        150,
+		MaxEntries:           5,
+		HistoricalEntries:    5000,
+		MinCommissionRate:    "0.05",
+	})
 
 	assert.Equal(t, "ustake", params.BondDenom)
 	assert.Equal(t, 86400*time.Second, params.UnbondingTime)
@@ -54,14 +47,11 @@ func TestApplyStakingParams_AllViperKeys(t *testing.T) {
 }
 
 func TestApplyStakingParams_PartialKeys_OnlyUpdatesSet(t *testing.T) {
-	viper.Set("chain.max_validators", uint32(200))
-	t.Cleanup(func() { viper.Set("chain.max_validators", nil) })
-
 	params := stakingtypes.DefaultParams()
 	originalEntries := params.MaxEntries
 	originalUnbonding := params.UnbondingTime
 
-	applyStakingParams(&params, "uatom")
+	applyStakingParams(&params, ChainConfig{BondDenom: "uatom", MaxValidators: 200})
 
 	assert.Equal(t, uint32(200), params.MaxValidators)
 	assert.Equal(t, originalEntries, params.MaxEntries)
@@ -78,6 +68,10 @@ func stakingAppState(t *testing.T, ec encoding.EncodingConfig) map[string]json.R
 	return map[string]json.RawMessage{"staking": bz}
 }
 
+func stakingTestConfig() ChainConfig {
+	return ChainConfig{AddressPrefix: testHRP, BondDenom: "uatom", GenesisTime: 0}
+}
+
 func TestSetStakingState_ValidatorRepoError(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	sentinel := errors.New("repo fail")
@@ -90,20 +84,12 @@ func TestSetStakingState_ValidatorRepoError(t *testing.T) {
 }
 
 func TestSetStakingState_SingleValidator_InStakingState(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	viper.Set("default_bond_denom", "uatom")
-	viper.Set("app.genesis_time", int64(0))
-	t.Cleanup(func() {
-		viper.Set("chain.address_prefix", nil)
-		viper.Set("default_bond_denom", nil)
-		viper.Set("app.genesis_time", nil)
-	})
-
 	ec := encoding.NewEncodingConfig()
 	v := testValidator(t, 1) // amount = 1_000_000
 	asm := StateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: []validator.Validator{v}},
+		cfg:                 stakingTestConfig(),
 	}
 	appGenState := stakingAppState(t, ec)
 	require.NoError(t, asm.setStakingState(appGenState, nil, nil))
@@ -121,21 +107,13 @@ func TestSetStakingState_SingleValidator_InStakingState(t *testing.T) {
 }
 
 func TestSetStakingState_SharesAddedToTokens(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	viper.Set("default_bond_denom", "uatom")
-	viper.Set("app.genesis_time", int64(0))
-	t.Cleanup(func() {
-		viper.Set("chain.address_prefix", nil)
-		viper.Set("default_bond_denom", nil)
-		viper.Set("app.genesis_time", nil)
-	})
-
 	ec := encoding.NewEncodingConfig()
 	v := testValidator(t, 2) // amount = 1_000_000
 	shares := map[string]int64{"validator-2": 3_000_000}
 	asm := StateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: []validator.Validator{v}},
+		cfg:                 stakingTestConfig(),
 	}
 	appGenState := stakingAppState(t, ec)
 	require.NoError(t, asm.setStakingState(appGenState, nil, shares))
@@ -150,15 +128,6 @@ func TestSetStakingState_SharesAddedToTokens(t *testing.T) {
 }
 
 func TestSetStakingState_DelegationsIncluded(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	viper.Set("default_bond_denom", "uatom")
-	viper.Set("app.genesis_time", int64(0))
-	t.Cleanup(func() {
-		viper.Set("chain.address_prefix", nil)
-		viper.Set("default_bond_denom", nil)
-		viper.Set("app.genesis_time", nil)
-	})
-
 	ec := encoding.NewEncodingConfig()
 	v := testValidator(t, 3)
 	existingDelegation := stakingtypes.Delegation{
@@ -169,6 +138,7 @@ func TestSetStakingState_DelegationsIncluded(t *testing.T) {
 	asm := StateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: []validator.Validator{v}},
+		cfg:                 stakingTestConfig(),
 	}
 	appGenState := stakingAppState(t, ec)
 	require.NoError(t, asm.setStakingState(appGenState, []stakingtypes.Delegation{existingDelegation}, nil))
@@ -184,19 +154,11 @@ func TestSetStakingState_DelegationsIncluded(t *testing.T) {
 }
 
 func TestSetStakingState_GenutilCleared(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	viper.Set("default_bond_denom", "uatom")
-	viper.Set("app.genesis_time", int64(0))
-	t.Cleanup(func() {
-		viper.Set("chain.address_prefix", nil)
-		viper.Set("default_bond_denom", nil)
-		viper.Set("app.genesis_time", nil)
-	})
-
 	ec := encoding.NewEncodingConfig()
 	asm := StateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{},
+		cfg:                 stakingTestConfig(),
 	}
 	appGenState := stakingAppState(t, ec)
 	appGenState["genutil"] = json.RawMessage(`{"gen_txs":["original"]}`)

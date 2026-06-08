@@ -7,7 +7,6 @@ import (
 	"time"
 
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -24,12 +23,13 @@ func slashingAppState(t *testing.T) map[string]json.RawMessage {
 	return map[string]json.RawMessage{"slashing": bz}
 }
 
-func slashingStateManager(t *testing.T, validators []validator.Validator, repoErr error) StateManager {
+func slashingStateManager(t *testing.T, validators []validator.Validator, repoErr error, cfg ChainConfig) StateManager {
 	t.Helper()
 	ec := encoding.NewEncodingConfig()
 	return StateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: validators, err: repoErr},
+		cfg:                 cfg,
 	}
 }
 
@@ -42,16 +42,13 @@ func readSlashingState(t *testing.T, appGenState map[string]json.RawMessage, ec 
 
 func TestSetSlashingState_ValidatorRepoError(t *testing.T) {
 	sentinel := errors.New("repo fail")
-	asm := slashingStateManager(t, nil, sentinel)
+	asm := slashingStateManager(t, nil, sentinel, ChainConfig{})
 	err := asm.setSlashingState(slashingAppState(t))
 	require.ErrorIs(t, err, sentinel)
 }
 
 func TestSetSlashingState_NoValidators_EmptySigningInfos(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
-	asm := slashingStateManager(t, nil, nil)
+	asm := slashingStateManager(t, nil, nil, ChainConfig{AddressPrefix: testHRP})
 	appGenState := slashingAppState(t)
 	require.NoError(t, asm.setSlashingState(appGenState))
 
@@ -61,11 +58,8 @@ func TestSetSlashingState_NoValidators_EmptySigningInfos(t *testing.T) {
 }
 
 func TestSetSlashingState_SingleValidator_SigningInfoPopulated(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	v := testValidator(t, 1)
-	asm := slashingStateManager(t, []validator.Validator{v}, nil)
+	asm := slashingStateManager(t, []validator.Validator{v}, nil, ChainConfig{AddressPrefix: testHRP})
 	appGenState := slashingAppState(t)
 	require.NoError(t, asm.setSlashingState(appGenState))
 
@@ -83,12 +77,9 @@ func TestSetSlashingState_SingleValidator_SigningInfoPopulated(t *testing.T) {
 }
 
 func TestSetSlashingState_MultipleValidators(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	v1 := testValidator(t, 2)
 	v2 := testValidator(t, 3)
-	asm := slashingStateManager(t, []validator.Validator{v1, v2}, nil)
+	asm := slashingStateManager(t, []validator.Validator{v1, v2}, nil, ChainConfig{AddressPrefix: testHRP})
 	appGenState := slashingAppState(t)
 	require.NoError(t, asm.setSlashingState(appGenState))
 
@@ -97,23 +88,15 @@ func TestSetSlashingState_MultipleValidators(t *testing.T) {
 	assert.Len(t, gs.MissedBlocks, 2)
 }
 
-func TestSetSlashingState_ViperParams_Applied(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	viper.Set("slashing.signed_blocks_window", int64(10000))
-	viper.Set("slashing.min_signed_per_window", "0.05")
-	viper.Set("slashing.downtime_jail_duration_seconds", int64(600))
-	viper.Set("slashing.slash_fraction_double_sign", "0.05")
-	viper.Set("slashing.slash_fraction_downtime", "0.0001")
-	t.Cleanup(func() {
-		viper.Set("chain.address_prefix", nil)
-		viper.Set("slashing.signed_blocks_window", nil)
-		viper.Set("slashing.min_signed_per_window", nil)
-		viper.Set("slashing.downtime_jail_duration_seconds", nil)
-		viper.Set("slashing.slash_fraction_double_sign", nil)
-		viper.Set("slashing.slash_fraction_downtime", nil)
+func TestSetSlashingState_ConfigParams_Applied(t *testing.T) {
+	asm := slashingStateManager(t, nil, nil, ChainConfig{
+		AddressPrefix:               testHRP,
+		SignedBlocksWindow:          10000,
+		MinSignedPerWindow:          "0.05",
+		DowntimeJailDurationSeconds: 600,
+		SlashFractionDoubleSign:     "0.05",
+		SlashFractionDowntime:       "0.0001",
 	})
-
-	asm := slashingStateManager(t, nil, nil)
 	appGenState := slashingAppState(t)
 	require.NoError(t, asm.setSlashingState(appGenState))
 

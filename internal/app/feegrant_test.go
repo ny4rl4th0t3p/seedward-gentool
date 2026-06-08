@@ -8,7 +8,6 @@ import (
 	"time"
 
 	feegranttypes "cosmossdk.io/x/feegrant"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -49,10 +48,10 @@ func readFeegrantState(t *testing.T, appGenState map[string]json.RawMessage, ec 
 	return &gs
 }
 
-func TestSetFeegrantState_NoViperKey_Skipped(t *testing.T) {
+func TestSetFeegrantState_NilRepo_Skipped(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	appGenState := feegrantAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, feeAllowanceRepository: stubFeeAllowanceRepo{}}
+	asm := StateManager{encodingConfig: ec} // nil feeAllowanceRepository → not configured
 
 	require.NoError(t, asm.setFeegrantState(context.Background(), appGenState))
 
@@ -61,9 +60,6 @@ func TestSetFeegrantState_NoViperKey_Skipped(t *testing.T) {
 }
 
 func TestSetFeegrantState_EmptyAllowances_Skipped(t *testing.T) {
-	viper.Set("feegrant.file_name", "/tmp/feegrant.csv")
-	t.Cleanup(func() { viper.Set("feegrant.file_name", nil) })
-
 	ec := encoding.NewEncodingConfig()
 	appGenState := feegrantAppState(t, ec)
 	asm := StateManager{encodingConfig: ec, feeAllowanceRepository: stubFeeAllowanceRepo{}}
@@ -75,9 +71,6 @@ func TestSetFeegrantState_EmptyAllowances_Skipped(t *testing.T) {
 }
 
 func TestSetFeegrantState_RepoError_ReturnsError(t *testing.T) {
-	viper.Set("feegrant.file_name", "/tmp/feegrant.csv")
-	t.Cleanup(func() { viper.Set("feegrant.file_name", nil) })
-
 	ec := encoding.NewEncodingConfig()
 	appGenState := feegrantAppState(t, ec)
 	sentinel := errors.New("repo fail")
@@ -88,18 +81,15 @@ func TestSetFeegrantState_RepoError_ReturnsError(t *testing.T) {
 }
 
 func TestSetFeegrantState_NonZeroSpendLimit_WrittenToGenesis(t *testing.T) {
-	viper.Set("feegrant.file_name", "/tmp/feegrant.csv")
-	viper.Set("default_bond_denom", "uatom")
-	t.Cleanup(func() {
-		viper.Set("feegrant.file_name", nil)
-		viper.Set("default_bond_denom", nil)
-	})
-
 	ec := encoding.NewEncodingConfig()
 	a := makeFeeAllowance(t, ec, 1, 2, 5_000_000, 0)
 
 	appGenState := feegrantAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []domainfeegrant.FeeAllowance{a}}}
+	asm := StateManager{
+		encodingConfig:         ec,
+		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []domainfeegrant.FeeAllowance{a}},
+		cfg:                    ChainConfig{BondDenom: "uatom"},
+	}
 
 	require.NoError(t, asm.setFeegrantState(context.Background(), appGenState))
 
@@ -111,18 +101,15 @@ func TestSetFeegrantState_NonZeroSpendLimit_WrittenToGenesis(t *testing.T) {
 }
 
 func TestSetFeegrantState_ZeroSpendLimit_NilSpendLimitInBasicAllowance(t *testing.T) {
-	viper.Set("feegrant.file_name", "/tmp/feegrant.csv")
-	viper.Set("default_bond_denom", "uatom")
-	t.Cleanup(func() {
-		viper.Set("feegrant.file_name", nil)
-		viper.Set("default_bond_denom", nil)
-	})
-
 	ec := encoding.NewEncodingConfig()
 	a := makeFeeAllowance(t, ec, 1, 2, 0, 0)
 
 	appGenState := feegrantAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []domainfeegrant.FeeAllowance{a}}}
+	asm := StateManager{
+		encodingConfig:         ec,
+		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []domainfeegrant.FeeAllowance{a}},
+		cfg:                    ChainConfig{BondDenom: "uatom"},
+	}
 
 	require.NoError(t, asm.setFeegrantState(context.Background(), appGenState))
 
@@ -138,18 +125,15 @@ func TestSetFeegrantState_ZeroSpendLimit_NilSpendLimitInBasicAllowance(t *testin
 }
 
 func TestSetFeegrantState_WithExpiry_ExpirationSet(t *testing.T) {
-	viper.Set("feegrant.file_name", "/tmp/feegrant.csv")
-	viper.Set("default_bond_denom", "uatom")
-	t.Cleanup(func() {
-		viper.Set("feegrant.file_name", nil)
-		viper.Set("default_bond_denom", nil)
-	})
-
 	ec := encoding.NewEncodingConfig()
 	a := makeFeeAllowance(t, ec, 1, 2, 1_000_000, 1900000000)
 
 	appGenState := feegrantAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []domainfeegrant.FeeAllowance{a}}}
+	asm := StateManager{
+		encodingConfig:         ec,
+		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []domainfeegrant.FeeAllowance{a}},
+		cfg:                    ChainConfig{BondDenom: "uatom"},
+	}
 
 	require.NoError(t, asm.setFeegrantState(context.Background(), appGenState))
 

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	authztypes "github.com/cosmos/cosmos-sdk/x/authz"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -49,10 +48,10 @@ func readAuthzState(t *testing.T, appGenState map[string]json.RawMessage, ec enc
 	return &gs
 }
 
-func TestSetAuthzState_NoViperKey_Skipped(t *testing.T) {
+func TestSetAuthzState_NilRepo_Skipped(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	appGenState := authzAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{}}
+	asm := StateManager{encodingConfig: ec} // nil authzGrantRepository → not configured
 
 	require.NoError(t, asm.setAuthzState(context.Background(), appGenState))
 
@@ -61,9 +60,6 @@ func TestSetAuthzState_NoViperKey_Skipped(t *testing.T) {
 }
 
 func TestSetAuthzState_EmptyGrants_Skipped(t *testing.T) {
-	viper.Set("authz.file_name", "/tmp/authz.csv")
-	t.Cleanup(func() { viper.Set("authz.file_name", nil) })
-
 	ec := encoding.NewEncodingConfig()
 	appGenState := authzAppState(t, ec)
 	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: nil}}
@@ -75,9 +71,6 @@ func TestSetAuthzState_EmptyGrants_Skipped(t *testing.T) {
 }
 
 func TestSetAuthzState_RepoError_ReturnsError(t *testing.T) {
-	viper.Set("authz.file_name", "/tmp/authz.csv")
-	t.Cleanup(func() { viper.Set("authz.file_name", nil) })
-
 	ec := encoding.NewEncodingConfig()
 	appGenState := authzAppState(t, ec)
 	sentinel := errors.New("repo fail")
@@ -88,9 +81,6 @@ func TestSetAuthzState_RepoError_ReturnsError(t *testing.T) {
 }
 
 func TestSetAuthzState_PopulatedGrants_WrittenToGenesis(t *testing.T) {
-	viper.Set("authz.file_name", "/tmp/authz.csv")
-	t.Cleanup(func() { viper.Set("authz.file_name", nil) })
-
 	ec := encoding.NewEncodingConfig()
 	g1 := makeAuthzGrant(t, ec, 1, 2, "/cosmos.bank.v1beta1.MsgSend", 0)
 	g2 := makeAuthzGrant(t, ec, 3, 4, "/cosmos.staking.v1beta1.MsgDelegate", 1900000000)
@@ -110,9 +100,6 @@ func TestSetAuthzState_PopulatedGrants_WrittenToGenesis(t *testing.T) {
 }
 
 func TestSetAuthzState_GenericAuthorization_TypeURLContainsGeneric(t *testing.T) {
-	viper.Set("authz.file_name", "/tmp/authz.csv")
-	t.Cleanup(func() { viper.Set("authz.file_name", nil) })
-
 	ec := encoding.NewEncodingConfig()
 	g := makeAuthzGrant(t, ec, 1, 2, "/cosmos.bank.v1beta1.MsgSend", 0)
 

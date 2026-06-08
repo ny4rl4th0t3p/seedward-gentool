@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/types/bech32"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -83,9 +82,6 @@ func TestFetchValidatorsShares_NoDelegateTo_EmptyShares(t *testing.T) {
 }
 
 func TestFetchValidatorsShares_Accumulates(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	ec := encoding.NewEncodingConfig()
 	v1 := testValidator(t, 1)
 	claims := []vesting_account.Claim{
@@ -101,9 +97,6 @@ func TestFetchValidatorsShares_Accumulates(t *testing.T) {
 }
 
 func TestFetchValidatorsShares_Overflow_ReturnsError(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	ec := encoding.NewEncodingConfig()
 	v1 := testValidator(t, 1)
 	// After claim1: shares[v] = math.MaxInt64 - 100_000
@@ -120,9 +113,6 @@ func TestFetchValidatorsShares_Overflow_ReturnsError(t *testing.T) {
 }
 
 func TestBuildValidatorReference_Normal(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	v1 := testValidator(t, 1)
 	v2 := testValidator(t, 2)
 

@@ -5,26 +5,25 @@ import (
 
 	"cosmossdk.io/math"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	"github.com/spf13/viper"
 )
 
 func (asm StateManager) fixMintParameters(appGenState map[string]json.RawMessage) error {
 	var mintGenState minttypes.GenesisState
 	return updateModuleState(asm.encodingConfig.Codec, appGenState, "mint", &mintGenState, func() error {
-		mintGenState.Params.MintDenom = viper.GetString("default_bond_denom")
-		if v := viper.GetInt64("chain.blocks_per_year"); v > 0 {
+		mintGenState.Params.MintDenom = asm.cfg.BondDenom
+		if v := asm.cfg.BlocksPerYear; v > 0 {
 			mintGenState.Params.BlocksPerYear = uint64(v)
 		}
-		if v := viper.GetString("chain.inflation_rate_change"); v != "" {
+		if v := asm.cfg.InflationRateChange; v != "" {
 			mintGenState.Params.InflationRateChange = math.LegacyMustNewDecFromStr(v)
 		}
-		if v := viper.GetString("chain.inflation_max"); v != "" {
+		if v := asm.cfg.InflationMax; v != "" {
 			mintGenState.Params.InflationMax = math.LegacyMustNewDecFromStr(v)
 		}
-		if v := viper.GetString("chain.inflation_min"); v != "" {
+		if v := asm.cfg.InflationMin; v != "" {
 			mintGenState.Params.InflationMin = math.LegacyMustNewDecFromStr(v)
 		}
-		if v := viper.GetString("chain.goal_bonded"); v != "" {
+		if v := asm.cfg.GoalBonded; v != "" {
 			mintGenState.Params.GoalBonded = math.LegacyMustNewDecFromStr(v)
 		}
 		return nil

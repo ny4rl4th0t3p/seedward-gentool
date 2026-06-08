@@ -11,7 +11,6 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/spf13/viper"
 )
 
 func (asm StateManager) setDistribution(appGenState map[string]json.RawMessage, delegations []stakingtypes.Delegation) error {
@@ -120,14 +119,14 @@ func (asm StateManager) setDistribution(appGenState map[string]json.RawMessage, 
 }
 
 func (asm StateManager) seedCommunityPool(appGenState map[string]json.RawMessage, distState *distributiontypes.GenesisState) error {
-	poolAmt := viper.GetInt64("distribution.community_pool_amount")
+	poolAmt := asm.cfg.CommunityPoolAmount
 	if poolAmt <= 0 {
 		return nil
 	}
-	denom := viper.GetString("default_bond_denom")
+	denom := asm.cfg.BondDenom
 	distState.FeePool.CommunityPool = sdk.NewDecCoins(sdk.NewDecCoin(denom, math.NewInt(poolAmt)))
 
-	hrp := viper.GetString("chain.address_prefix")
+	hrp := asm.cfg.AddressPrefix
 	distAddr, err := moduleAddress(hrp, "distribution")
 	if err != nil {
 		return err

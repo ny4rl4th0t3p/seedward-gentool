@@ -8,7 +8,6 @@ import (
 
 	"cosmossdk.io/math"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/spf13/viper"
 )
 
 func (asm StateManager) setStakingState(
@@ -30,8 +29,7 @@ func (asm StateManager) setStakingState(
 		stakingGenState = *stakingtypes.DefaultGenesisState()
 	}
 
-	denom := viper.GetString("default_bond_denom")
-	applyStakingParams(&stakingGenState.Params, denom)
+	applyStakingParams(&stakingGenState.Params, asm.cfg)
 
 	var lastTotalPower int64
 	var lastValidatorPowers []stakingtypes.LastValidatorPower
@@ -48,7 +46,7 @@ func (asm StateManager) setStakingState(
 		})
 
 		// commission update_time must predate genesis, otherwise the SDK blocks immediate rate changes.
-		t := time.Unix(viper.GetInt64("app.genesis_time"), 0).AddDate(0, -1, 0).UTC()
+		t := time.Unix(asm.cfg.GenesisTime, 0).AddDate(0, -1, 0).UTC()
 		stakingValidators = append(stakingValidators, map[string]any{
 			"operator_address": validators[i].OperatorAddress(),
 			"consensus_pubkey": map[string]any{
@@ -127,21 +125,21 @@ func (asm StateManager) setStakingState(
 	return nil
 }
 
-func applyStakingParams(params *stakingtypes.Params, denom string) {
-	params.BondDenom = denom
-	if v := viper.GetInt64("chain.unbonding_time_seconds"); v > 0 {
+func applyStakingParams(params *stakingtypes.Params, cfg ChainConfig) {
+	params.BondDenom = cfg.BondDenom
+	if v := cfg.UnbondingTimeSeconds; v > 0 {
 		params.UnbondingTime = time.Duration(v) * time.Second
 	}
-	if v := viper.GetUint32("chain.max_validators"); v > 0 {
+	if v := cfg.MaxValidators; v > 0 {
 		params.MaxValidators = v
 	}
-	if v := viper.GetUint32("chain.max_entries"); v > 0 {
+	if v := cfg.MaxEntries; v > 0 {
 		params.MaxEntries = v
 	}
-	if v := viper.GetUint32("chain.historical_entries"); v > 0 {
+	if v := cfg.HistoricalEntries; v > 0 {
 		params.HistoricalEntries = v
 	}
-	if v := viper.GetString("chain.min_commission_rate"); v != "" {
+	if v := cfg.MinCommissionRate; v != "" {
 		params.MinCommissionRate = math.LegacyMustNewDecFromStr(v)
 	}
 }

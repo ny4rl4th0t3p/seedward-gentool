@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -29,11 +28,8 @@ func readMintState(t *testing.T, appGenState map[string]json.RawMessage, ec enco
 }
 
 func TestFixMintParameters_SetsMintDenom(t *testing.T) {
-	viper.Set("default_bond_denom", "ustake")
-	t.Cleanup(func() { viper.Set("default_bond_denom", nil) })
-
 	appGenState, ec := mintAppState(t)
-	asm := StateManager{encodingConfig: ec}
+	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{BondDenom: "ustake"}}
 	require.NoError(t, asm.fixMintParameters(appGenState))
 
 	gs := readMintState(t, appGenState, ec)
@@ -41,15 +37,8 @@ func TestFixMintParameters_SetsMintDenom(t *testing.T) {
 }
 
 func TestFixMintParameters_BlocksPerYear(t *testing.T) {
-	viper.Set("default_bond_denom", "uatom")
-	viper.Set("chain.blocks_per_year", int64(6_000_000))
-	t.Cleanup(func() {
-		viper.Set("default_bond_denom", nil)
-		viper.Set("chain.blocks_per_year", nil)
-	})
-
 	appGenState, ec := mintAppState(t)
-	asm := StateManager{encodingConfig: ec}
+	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{BondDenom: "uatom", BlocksPerYear: 6_000_000}}
 	require.NoError(t, asm.fixMintParameters(appGenState))
 
 	gs := readMintState(t, appGenState, ec)
@@ -57,21 +46,14 @@ func TestFixMintParameters_BlocksPerYear(t *testing.T) {
 }
 
 func TestFixMintParameters_InflationParams(t *testing.T) {
-	viper.Set("default_bond_denom", "uatom")
-	viper.Set("chain.inflation_rate_change", "0.13")
-	viper.Set("chain.inflation_max", "0.20")
-	viper.Set("chain.inflation_min", "0.07")
-	viper.Set("chain.goal_bonded", "0.67")
-	t.Cleanup(func() {
-		viper.Set("default_bond_denom", nil)
-		viper.Set("chain.inflation_rate_change", nil)
-		viper.Set("chain.inflation_max", nil)
-		viper.Set("chain.inflation_min", nil)
-		viper.Set("chain.goal_bonded", nil)
-	})
-
 	appGenState, ec := mintAppState(t)
-	asm := StateManager{encodingConfig: ec}
+	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{
+		BondDenom:           "uatom",
+		InflationRateChange: "0.13",
+		InflationMax:        "0.20",
+		InflationMin:        "0.07",
+		GoalBonded:          "0.67",
+	}}
 	require.NoError(t, asm.fixMintParameters(appGenState))
 
 	gs := readMintState(t, appGenState, ec)

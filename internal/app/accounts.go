@@ -15,7 +15,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/spf13/viper"
 
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/domain/validator"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/encoding"
@@ -24,14 +23,8 @@ import (
 
 const NonStakedPortion = 100000
 
-func getNonStakedPortion() int64 {
-	if v := viper.GetInt64("accounts.non_staked_portion"); v > 0 {
-		return v
-	}
-	return NonStakedPortion
-}
-
 type Accounts struct {
+	cfg                 ChainConfig
 	claimRepository     repository.ClaimRepository
 	grantRepository     repository.GrantRepository
 	initialAccountsRepo repository.InitialAccountsRepository
@@ -39,12 +32,14 @@ type Accounts struct {
 }
 
 func NewAccounts(
+	cfg ChainConfig,
 	claimRepository repository.ClaimRepository,
 	grantRepository repository.GrantRepository,
 	initialAccountsRepo repository.InitialAccountsRepository,
 	validatorRepository repository.ValidatorRepository,
 ) *Accounts {
 	return &Accounts{
+		cfg:                 cfg,
 		claimRepository:     claimRepository,
 		grantRepository:     grantRepository,
 		initialAccountsRepo: initialAccountsRepo,
@@ -58,7 +53,7 @@ func (va Accounts) fetchValidatorsShares(encodingConfig encoding.EncodingConfig)
 	if err != nil {
 		return nil, err
 	}
-	nonStakedPortion := getNonStakedPortion()
+	nonStakedPortion := va.cfg.NonStaked()
 	for _, claim := range claims {
 		if claim.DelegateTo() != "" {
 			delta := claim.Amount() - nonStakedPortion
@@ -144,21 +139,22 @@ func (va Accounts) appendVestingAccounts(
 		return nil, err
 	}
 
-	hrp := viper.GetString("chain.address_prefix")
+	hrp := va.cfg.AddressPrefix
+	denom := va.cfg.BondDenom
 
 	// --- claims: delayed vesting, optional immediate delegation ---
 	sort.SliceStable(claims, func(i, j int) bool {
 		return claims[i].Address() < claims[j].Address()
 	})
-	nonStakedPortion := getNonStakedPortion()
+	nonStakedPortion := va.cfg.NonStaked()
 	for _, claim := range claims {
 		addr, err := encodingConfig.TxConfig.SigningContext().AddressCodec().StringToBytes(claim.Address())
 		if err != nil {
 			return nil, err
 		}
 		accs, err = AddCustomVestingGenesisAccount(
-			claim, addr, 0, viper.GetInt64("claims.vesting.end_date"),
-			hrp, encodingConfig, accs, bankGenState, true,
+			claim, addr, 0, va.cfg.ClaimsVestingEnd,
+			hrp, denom, nonStakedPortion, encodingConfig, accs, bankGenState, true,
 		)
 		if err != nil {
 			slog.Error(err.Error())
@@ -184,9 +180,9 @@ func (va Accounts) appendVestingAccounts(
 		}
 		accs, err = AddCustomVestingGenesisAccount(
 			grant, addr,
-			viper.GetInt64("grants.vesting.start_date"),
-			viper.GetInt64("grants.vesting.end_date"),
-			hrp, encodingConfig, accs, bankGenState, false,
+			va.cfg.GrantsVestingStart,
+			va.cfg.GrantsVestingEnd,
+			hrp, denom, nonStakedPortion, encodingConfig, accs, bankGenState, false,
 		)
 		if err != nil {
 			return nil, err
@@ -265,8 +261,8 @@ func (va Accounts) appendModuleAccounts(
 	clientCtx client.Context,
 	appState map[string]json.RawMessage,
 ) error {
-	hrp := viper.GetString("chain.address_prefix")
-	denom := viper.GetString("default_bond_denom")
+	hrp := va.cfg.AddressPrefix
+	denom := va.cfg.BondDenom
 
 	type moduleEntry struct {
 		address     string
@@ -309,13 +305,7 @@ func (va Accounts) appendModuleAccounts(
 	}
 
 	// Extra modules from config (e.g. chain-specific modules like "meta")
-	type extraModuleConfig struct {
-		Name        string   `mapstructure:"name"`
-		Permissions []string `mapstructure:"permissions"`
-	}
-	var extraModules []extraModuleConfig
-	_ = viper.UnmarshalKey("modules.extra", &extraModules)
-	for _, em := range extraModules {
+	for _, em := range va.cfg.ExtraModules {
 		addr, err := moduleAddress(hrp, em.Name)
 		if err != nil {
 			return fmt.Errorf("failed to compute address for extra module %s: %w", em.Name, err)
@@ -371,7 +361,7 @@ func (va Accounts) appendInitialAccounts(
 	if err != nil {
 		return err
 	}
-	denom := viper.GetString("default_bond_denom")
+	denom := va.cfg.BondDenom
 	for _, acc := range initialAccounts {
 		if acc.Amount() == 0 {
 			continue

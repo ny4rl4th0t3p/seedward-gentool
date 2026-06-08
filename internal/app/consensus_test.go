@@ -7,7 +7,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -44,9 +43,6 @@ func TestSetParams_EmptyValidators_SetsConsensusWithNoValidators(t *testing.T) {
 }
 
 func TestSetParams_SingleValidator_PowerAndFields(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	v := testValidator(t, 1) // amount = 1_000_000
 	c, appGenesis := newConsensusForTest(t, []validator.Validator{v}, nil)
 	require.NoError(t, c.SetParams())
@@ -59,9 +55,6 @@ func TestSetParams_SingleValidator_PowerAndFields(t *testing.T) {
 }
 
 func TestSetParams_PowerIncludesShares(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	v := testValidator(t, 2) // amount = 1_000_000
 	shares := map[string]int64{"validator-2": 4_000_000}
 	c, appGenesis := newConsensusForTest(t, []validator.Validator{v}, shares)
@@ -72,9 +65,6 @@ func TestSetParams_PowerIncludesShares(t *testing.T) {
 }
 
 func TestSetParams_MultipleValidators_AllIncluded(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	v1 := testValidator(t, 3)
 	v2 := testValidator(t, 4)
 	c, appGenesis := newConsensusForTest(t, []validator.Validator{v1, v2}, nil)
@@ -98,9 +88,6 @@ func TestSetParams_ConsensusParamDefaults(t *testing.T) {
 }
 
 func TestSetParams_InvalidPubKeyLength_ReturnsError(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	// 16-byte pubkey passes validator construction (SHA256 accepts any length)
 	// but SetParams rejects it because ed25519 requires exactly 32 bytes.
 	shortPubKey := base64.StdEncoding.EncodeToString(make([]byte, 16))

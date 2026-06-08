@@ -5,11 +5,10 @@ import (
 
 	"cosmossdk.io/math"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/spf13/viper"
 )
 
 func (asm StateManager) setDenominationMetadata() error {
-	base := viper.GetString("denom.base")
+	base := asm.cfg.DenomBase
 	if base == "" {
 		// No denom metadata configured; preserve baseline.
 		return nil
@@ -17,11 +16,11 @@ func (asm StateManager) setDenominationMetadata() error {
 
 	bankGenState := banktypes.GetGenesisStateFromAppState(asm.clientCtx.Codec, asm.appGenState)
 
-	display := viper.GetString("denom.display")
-	symbol := viper.GetString("denom.symbol")
-	description := viper.GetString("denom.description")
-	exponent := viper.GetUint32("denom.exponent")
-	aliases := viper.GetStringSlice("denom.aliases")
+	display := asm.cfg.DenomDisplay
+	symbol := asm.cfg.DenomSymbol
+	description := asm.cfg.DenomDescription
+	exponent := asm.cfg.DenomExponent
+	aliases := asm.cfg.DenomAliases
 
 	denomUnits := []*banktypes.DenomUnit{
 		{Denom: base, Exponent: 0, Aliases: aliases},
@@ -50,8 +49,8 @@ func (asm StateManager) setDenominationMetadata() error {
 
 func (asm StateManager) validateSupply() error {
 	bankGenState := banktypes.GetGenesisStateFromAppState(asm.clientCtx.Codec, asm.appGenState)
-	supply := bankGenState.Supply.AmountOf(viper.GetString("default_bond_denom"))
-	totalSupply := math.NewInt(viper.GetInt64("accounts.total_supply"))
+	supply := bankGenState.Supply.AmountOf(asm.cfg.BondDenom)
+	totalSupply := math.NewInt(asm.cfg.TotalSupply)
 	if !supply.Equal(totalSupply) {
 		return fmt.Errorf("total supply mismatch: got %s, expected %s", supply, totalSupply)
 	}
