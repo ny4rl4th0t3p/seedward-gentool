@@ -1,4 +1,4 @@
-package app
+package genesis
 
 import (
 	"context"
@@ -27,6 +27,7 @@ func testValidator(t *testing.T, i byte) validator.Validator {
 	opPubKey := base64.StdEncoding.EncodeToString(make([]byte, 33))
 
 	v, err := validator.NewValidatorFromFields(
+		testHRP,
 		opAddr, pubKey, "ed25519",
 		fmt.Sprintf("validator-%d", i),
 		"", "", "", "",

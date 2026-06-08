@@ -1,6 +1,7 @@
-package app
+package genesis
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,15 +28,21 @@ const (
 	InvalidVestingErr = "invalid vesting parameters; must supply start and end time or end time"
 )
 
-// Set sdk.GetConfig() bech32 prefixes and sdk.DefaultBondDenom before calling this.
-func LoadGenesis(
-	path string, cfg ChainConfig,
+// parseBaseGenesis parses a baseline genesis document (raw JSON from '<chaind>
+// init') into its in-memory app state and AppGenesis, overriding the metadata
+// from cfg. No disk access. Build seals sdk.Config before calling this.
+func parseBaseGenesis(
+	raw []byte, cfg ChainConfig,
 ) (encoding.EncodingConfig, client.Context, map[string]json.RawMessage, *genutiltypes.AppGenesis, error) {
 	encodingConfig := encoding.NewEncodingConfig()
 
-	appState, appGenesis, err := genutiltypes.GenesisStateFromGenFile(path)
+	appGenesis, err := genutiltypes.AppGenesisFromReader(bytes.NewReader(raw))
 	if err != nil {
-		return encoding.EncodingConfig{}, client.Context{}, nil, nil, fmt.Errorf("failed to read genesis file %s: %w", path, err)
+		return encoding.EncodingConfig{}, client.Context{}, nil, nil, fmt.Errorf("failed to parse baseline genesis: %w", err)
+	}
+	appState, err := genutiltypes.GenesisStateFromAppGenesis(appGenesis)
+	if err != nil {
+		return encoding.EncodingConfig{}, client.Context{}, nil, nil, fmt.Errorf("failed to extract app state from baseline genesis: %w", err)
 	}
 
 	// Override genesis metadata from config; the baseline file values are ignored.
@@ -67,11 +74,12 @@ func moduleAddress(hrp, moduleName string) (string, error) {
 	return addr, nil
 }
 
-func saveGenesis(
+// sealAppGenesis folds the final in-memory app state into appGenesis (and stamps
+// the genesis time). No disk write — the caller (cmd/gentool) saves to disk.
+func sealAppGenesis(
 	appGenState map[string]json.RawMessage,
 	appGenesis *genutiltypes.AppGenesis,
 	genesisTime time.Time,
-	outputPath string,
 ) error {
 	appStateJSON, err := json.Marshal(appGenState)
 	if err != nil {
@@ -79,7 +87,7 @@ func saveGenesis(
 	}
 	appGenesis.AppState = appStateJSON
 	appGenesis.GenesisTime = genesisTime
-	return appGenesis.SaveAs(outputPath)
+	return nil
 }
 
 // addBaseGenesisAccount adds a plain base account (and its balance) to the

@@ -1,4 +1,4 @@
-package app
+package genesis
 
 // ExtraModule is a chain-specific module account (e.g. Nillion's "meta" module)
 // that is not part of the standard Cosmos SDK module set.

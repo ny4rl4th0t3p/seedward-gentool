@@ -1,4 +1,4 @@
-package app
+package genesis
 
 import (
 	"context"
@@ -98,6 +98,7 @@ func TestSetParams_InvalidPubKeyLength_ReturnsError(t *testing.T) {
 	opPubKey := base64.StdEncoding.EncodeToString(make([]byte, 33))
 
 	v, err := validator.NewValidatorFromFields(
+		testHRP,
 		opAddr, shortPubKey, "ed25519", "bad-pubkey-val",
 		"", "", "", "",
 		"0.1", "0.2", "0.05", "1", "", "uatom", opPubKey,

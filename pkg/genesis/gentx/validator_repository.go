@@ -62,10 +62,11 @@ var validatorJSON struct {
 
 type ValidatorRepository struct {
 	gentTxFilesDir string
+	hrp            string
 }
 
-func NewValidatorRepository(jsonDir string) *ValidatorRepository {
-	return &ValidatorRepository{gentTxFilesDir: jsonDir}
+func NewValidatorRepository(jsonDir, hrp string) *ValidatorRepository {
+	return &ValidatorRepository{gentTxFilesDir: jsonDir, hrp: hrp}
 }
 
 func (repo *ValidatorRepository) GetValidators(_ context.Context) ([]validator.Validator, error) {
@@ -88,7 +89,7 @@ func (repo *ValidatorRepository) GetValidators(_ context.Context) ([]validator.V
 	for _, file := range files {
 		slog.Debug("Processing JSON file", slog.String("file", file))
 
-		fileValidators, err := parseValidatorsFromFile(file)
+		fileValidators, err := parseValidatorsFromFile(file, repo.hrp)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse validators from file '%s': %w", file, err)
 		}
@@ -102,7 +103,7 @@ func (repo *ValidatorRepository) GetValidators(_ context.Context) ([]validator.V
 	return validators, nil
 }
 
-func parseValidatorsFromFile(filePath string) ([]validator.Validator, error) {
+func parseValidatorsFromFile(filePath, hrp string) ([]validator.Validator, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file '%s': %w", filePath, err)
@@ -133,6 +134,7 @@ func parseValidatorsFromFile(filePath string) ([]validator.Validator, error) {
 		}
 
 		v, err := validator.NewValidatorFromFields(
+			hrp,
 			strings.TrimSpace(msg.ValidatorAddress),
 			msg.PubKey.Key,
 			msg.PubKey.Type,

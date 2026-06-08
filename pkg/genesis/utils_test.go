@@ -1,4 +1,4 @@
-package app
+package genesis
 
 import (
 	"encoding/json"
@@ -23,11 +23,9 @@ import (
 const testHRP = "cosmos"
 
 func TestMain(m *testing.M) {
-	cfg := sdk.GetConfig()
-	cfg.SetBech32PrefixForAccount(testHRP, testHRP+"pub")
-	cfg.SetBech32PrefixForValidator(testHRP+"valoper", testHRP+"valoperpub")
-	cfg.SetBech32PrefixForConsensusNode(testHRP+"valcons", testHRP+"valconspub")
-	cfg.Seal()
+	// Seal via the same once-guarded path Build uses, so a Build call in tests
+	// (build_test.go) does not panic trying to re-seal an already-sealed config.
+	sealSDKConfig(testHRP)
 	os.Exit(m.Run())
 }
 
@@ -315,9 +313,9 @@ func TestAllocateDelegatedFunds_WithDelegation(t *testing.T) {
 	assert.Equal(t, int64(100_000), balanceOf(addr.String()))
 }
 
-// --- saveGenesis ---
+// --- sealAppGenesis ---
 
-func TestSaveGenesis_WritesReadableFile(t *testing.T) {
+func TestSealAppGenesis_FoldsStateIntoGenesis(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	bankDefault := banktypes.DefaultGenesisState()
 	bz, err := ec.Codec.MarshalJSON(bankDefault)
@@ -325,35 +323,28 @@ func TestSaveGenesis_WritesReadableFile(t *testing.T) {
 	appGenState := map[string]json.RawMessage{"bank": bz}
 
 	appGenesis := &genutiltypes.AppGenesis{ChainID: "test-chain-1"}
-	path := filepath.Join(t.TempDir(), "genesis.json")
 	genesisTime := time.Unix(1_700_000_000, 0).UTC()
 
-	require.NoError(t, saveGenesis(appGenState, appGenesis, genesisTime, path))
+	require.NoError(t, sealAppGenesis(appGenState, appGenesis, genesisTime))
 
-	_, err = os.Stat(path)
-	require.NoError(t, err, "genesis file should exist")
-
-	// File is valid JSON parseable by GenesisStateFromGenFile.
-	readState, readGenesis, err := genutiltypes.GenesisStateFromGenFile(path)
-	require.NoError(t, err)
-	assert.Equal(t, "test-chain-1", readGenesis.ChainID)
-	assert.Contains(t, readState, "bank")
+	// No file is written; the state is folded into appGenesis in memory.
+	assert.Equal(t, genesisTime, appGenesis.GenesisTime)
+	assert.Equal(t, "test-chain-1", appGenesis.ChainID)
+	var sealed map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(appGenesis.AppState, &sealed))
+	assert.Contains(t, sealed, "bank")
 }
 
-func TestSaveGenesis_StampsGenesisTime(t *testing.T) {
+func TestSealAppGenesis_StampsGenesisTime(t *testing.T) {
 	const genesisUnix = int64(1_700_000_000)
 	appGenesis := &genutiltypes.AppGenesis{}
-	path := filepath.Join(t.TempDir(), "genesis.json")
-	require.NoError(t, saveGenesis(map[string]json.RawMessage{}, appGenesis, time.Unix(genesisUnix, 0).UTC(), path))
-
-	_, readGenesis, err := genutiltypes.GenesisStateFromGenFile(path)
-	require.NoError(t, err)
-	assert.Equal(t, time.Unix(genesisUnix, 0).UTC(), readGenesis.GenesisTime)
+	require.NoError(t, sealAppGenesis(map[string]json.RawMessage{}, appGenesis, time.Unix(genesisUnix, 0).UTC()))
+	assert.Equal(t, time.Unix(genesisUnix, 0).UTC(), appGenesis.GenesisTime)
 }
 
-// --- LoadGenesis ---
+// --- parseBaseGenesis ---
 
-func TestLoadGenesis_ReadsStateAndMetadata(t *testing.T) {
+func TestParseBaseGenesis_ReadsStateAndMetadata(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	bankDefault := banktypes.DefaultGenesisState()
 	bz, err := ec.Codec.MarshalJSON(bankDefault)
@@ -361,12 +352,12 @@ func TestLoadGenesis_ReadsStateAndMetadata(t *testing.T) {
 	appStateJSON, err := json.Marshal(map[string]json.RawMessage{"bank": bz})
 	require.NoError(t, err)
 
-	appGenesis := &genutiltypes.AppGenesis{
-		ChainID:  "load-test-1",
-		AppState: appStateJSON,
-	}
+	// Produce a valid baseline genesis document, then read it back as raw bytes.
+	baseGenesis := &genutiltypes.AppGenesis{ChainID: "load-test-1", AppState: appStateJSON}
 	path := filepath.Join(t.TempDir(), "genesis.json")
-	require.NoError(t, appGenesis.SaveAs(path))
+	require.NoError(t, baseGenesis.SaveAs(path))
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
 
 	cfg := ChainConfig{
 		ChainID:       "load-test-1",
@@ -376,7 +367,7 @@ func TestLoadGenesis_ReadsStateAndMetadata(t *testing.T) {
 		InitialHeight: 1,
 	}
 
-	loadedEC, clientCtx, appState, loadedGenesis, err := LoadGenesis(path, cfg)
+	loadedEC, clientCtx, appState, loadedGenesis, err := parseBaseGenesis(raw, cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, loadedEC.Codec)
 	assert.NotNil(t, clientCtx.Codec)
@@ -385,10 +376,10 @@ func TestLoadGenesis_ReadsStateAndMetadata(t *testing.T) {
 	assert.Equal(t, "testapp", loadedGenesis.AppName)
 }
 
-func TestLoadGenesis_NonExistentFile_ReturnsError(t *testing.T) {
-	_, _, _, _, err := LoadGenesis("/nonexistent/genesis.json", ChainConfig{}) //nolint:dogsled // only error matters here
+func TestParseBaseGenesis_InvalidBytes_ReturnsError(t *testing.T) {
+	_, _, _, _, err := parseBaseGenesis([]byte("not valid genesis json"), ChainConfig{}) //nolint:dogsled // only error matters here
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read genesis file")
+	assert.Contains(t, err.Error(), "failed to parse baseline genesis")
 }
 
 // --- addBaseGenesisAccount ---

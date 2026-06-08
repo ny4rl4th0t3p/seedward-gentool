@@ -6,7 +6,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -67,43 +66,4 @@ func TestNewInitialAccount_NegativeAmount(t *testing.T) {
 	acc, err := accounts.NewInitialAccount(testAddr(3), -1, testEncodingConfig)
 	require.NoError(t, err)
 	assert.Equal(t, int64(-1), acc.Amount())
-}
-
-func TestIsInRemainderAllowedList_InList(t *testing.T) {
-	addr := testAddr(10)
-	viper.Set("accounts.remainder_allowlist", []string{addr, testAddr(11)})
-	t.Cleanup(func() { viper.Set("accounts.remainder_allowlist", nil) })
-
-	acc, err := accounts.NewInitialAccount(addr, 500, testEncodingConfig)
-	require.NoError(t, err)
-	assert.True(t, acc.IsInRemainderAllowedList())
-}
-
-func TestIsInRemainderAllowedList_NotInList(t *testing.T) {
-	viper.Set("accounts.remainder_allowlist", []string{testAddr(20)})
-	t.Cleanup(func() { viper.Set("accounts.remainder_allowlist", nil) })
-
-	acc, err := accounts.NewInitialAccount(testAddr(21), 500, testEncodingConfig)
-	require.NoError(t, err)
-	assert.False(t, acc.IsInRemainderAllowedList())
-}
-
-func TestIsInRemainderAllowedList_EmptyList(t *testing.T) {
-	viper.Set("accounts.remainder_allowlist", []string{})
-	t.Cleanup(func() { viper.Set("accounts.remainder_allowlist", nil) })
-
-	acc, err := accounts.NewInitialAccount(testAddr(30), 500, testEncodingConfig)
-	require.NoError(t, err)
-	assert.False(t, acc.IsInRemainderAllowedList())
-}
-
-func TestIsInRemainderAllowedList_MultipleEntries(t *testing.T) {
-	addr := testAddr(40)
-	other := testAddr(41)
-	viper.Set("accounts.remainder_allowlist", []string{other, addr, testAddr(42)})
-	t.Cleanup(func() { viper.Set("accounts.remainder_allowlist", nil) })
-
-	acc, err := accounts.NewInitialAccount(addr, 1, testEncodingConfig)
-	require.NoError(t, err)
-	assert.True(t, acc.IsInRemainderAllowedList())
 }

@@ -3,9 +3,6 @@ package accounts
 import (
 	"errors"
 	"fmt"
-	"strings"
-
-	"github.com/spf13/viper"
 
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 )
@@ -33,14 +30,4 @@ func (a InitialAccount) Validate(encodingConfig encoding.EncodingConfig) error {
 		return fmt.Errorf("%w: invalid address %q: %w", ErrInvalidInitialAccount, a.address, err)
 	}
 	return nil
-}
-
-func (a InitialAccount) IsInRemainderAllowedList() bool {
-	address := strings.TrimSpace(a.address)
-	for _, allowed := range viper.GetStringSlice("accounts.remainder_allowlist") {
-		if address == allowed {
-			return true
-		}
-	}
-	return false
 }

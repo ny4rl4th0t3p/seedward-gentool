@@ -10,7 +10,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/bech32"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -106,14 +105,11 @@ func writeTempGentxDir(t *testing.T, files map[string]string) string {
 }
 
 func TestGetValidators_Valid_SingleFile(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	dir := writeTempGentxDir(t, map[string]string{
 		"gentx-val1.json": gentxJSON(testOperatorAddr(1), testConsensusPubKeyB64(1), testOperatorPubKeyB64(1), "my-validator"),
 	})
 
-	repo := gentx.NewValidatorRepository(dir)
+	repo := gentx.NewValidatorRepository(dir, testHRP)
 	validators, err := repo.GetValidators(context.Background())
 	require.NoError(t, err)
 	require.Len(t, validators, 1)
@@ -125,9 +121,6 @@ func TestGetValidators_Valid_SingleFile(t *testing.T) {
 }
 
 func TestGetValidators_AllFieldsParsed(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	json := fmt.Sprintf(`{
 		"body": {
 			"messages": [{
@@ -169,7 +162,7 @@ func TestGetValidators_AllFieldsParsed(t *testing.T) {
 
 	dir := writeTempGentxDir(t, map[string]string{"gentx-full.json": json})
 
-	repo := gentx.NewValidatorRepository(dir)
+	repo := gentx.NewValidatorRepository(dir, testHRP)
 	validators, err := repo.GetValidators(context.Background())
 	require.NoError(t, err)
 	require.Len(t, validators, 1)
@@ -187,29 +180,26 @@ func TestGetValidators_AllFieldsParsed(t *testing.T) {
 }
 
 func TestGetValidators_MultipleFiles(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	dir := writeTempGentxDir(t, map[string]string{
 		"gentx-val1.json": gentxJSON(testOperatorAddr(3), testConsensusPubKeyB64(3), testOperatorPubKeyB64(3), "validator-one"),
 		"gentx-val2.json": gentxJSON(testOperatorAddr(4), testConsensusPubKeyB64(4), testOperatorPubKeyB64(4), "validator-two"),
 	})
 
-	repo := gentx.NewValidatorRepository(dir)
+	repo := gentx.NewValidatorRepository(dir, testHRP)
 	validators, err := repo.GetValidators(context.Background())
 	require.NoError(t, err)
 	assert.Len(t, validators, 2)
 }
 
 func TestGetValidators_EmptyDirectory(t *testing.T) {
-	repo := gentx.NewValidatorRepository(t.TempDir())
+	repo := gentx.NewValidatorRepository(t.TempDir(), testHRP)
 	_, err := repo.GetValidators(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no JSON files found")
 }
 
 func TestGetValidators_NonExistentDirectory(t *testing.T) {
-	repo := gentx.NewValidatorRepository("/nonexistent/path/gentx")
+	repo := gentx.NewValidatorRepository("/nonexistent/path/gentx", testHRP)
 	_, err := repo.GetValidators(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no JSON files found")
@@ -220,16 +210,13 @@ func TestGetValidators_MalformedJSON(t *testing.T) {
 		"gentx-bad.json": `{not valid json`,
 	})
 
-	repo := gentx.NewValidatorRepository(dir)
+	repo := gentx.NewValidatorRepository(dir, testHRP)
 	_, err := repo.GetValidators(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse validators")
 }
 
 func TestGetValidators_InvalidAmount(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	json := fmt.Sprintf(`{
 		"body": {
 			"messages": [{
@@ -248,7 +235,7 @@ func TestGetValidators_InvalidAmount(t *testing.T) {
 
 	dir := writeTempGentxDir(t, map[string]string{"gentx-bad-amount.json": json})
 
-	repo := gentx.NewValidatorRepository(dir)
+	repo := gentx.NewValidatorRepository(dir, testHRP)
 	_, err := repo.GetValidators(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid amount")
@@ -256,9 +243,6 @@ func TestGetValidators_InvalidAmount(t *testing.T) {
 
 func TestGetValidators_MissingSignerInfos_Errors(t *testing.T) {
 	// operatorPublicKey is validated non-empty; absent signer_infos produces ErrInvalidValidator.
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	json := fmt.Sprintf(`{
 		"body": {
 			"messages": [{
@@ -277,16 +261,13 @@ func TestGetValidators_MissingSignerInfos_Errors(t *testing.T) {
 
 	dir := writeTempGentxDir(t, map[string]string{"gentx-no-signer.json": json})
 
-	repo := gentx.NewValidatorRepository(dir)
+	repo := gentx.NewValidatorRepository(dir, testHRP)
 	_, err := repo.GetValidators(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse validators")
 }
 
 func TestGetValidators_InvalidAddress(t *testing.T) {
-	viper.Set("chain.address_prefix", testHRP)
-	t.Cleanup(func() { viper.Set("chain.address_prefix", nil) })
-
 	json := fmt.Sprintf(`{
 		"body": {
 			"messages": [{
@@ -312,7 +293,7 @@ func TestGetValidators_InvalidAddress(t *testing.T) {
 
 	dir := writeTempGentxDir(t, map[string]string{"gentx-bad-addr.json": json})
 
-	repo := gentx.NewValidatorRepository(dir)
+	repo := gentx.NewValidatorRepository(dir, testHRP)
 	_, err := repo.GetValidators(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse validators")

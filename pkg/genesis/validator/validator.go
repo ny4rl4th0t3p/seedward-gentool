@@ -8,7 +8,6 @@ import (
 	"log/slog"
 
 	"github.com/cosmos/cosmos-sdk/types/bech32"
-	"github.com/spf13/viper"
 )
 
 var ErrInvalidValidator = errors.New("invalid validator")
@@ -88,8 +87,7 @@ func (v Validator) Validate() bool {
 }
 
 // deriveDelegatorAddress re-encodes an operator address to the account address (same bytes, account HRP).
-func deriveDelegatorAddress(operatorAddress string) (string, error) {
-	hrp := viper.GetString("chain.address_prefix")
+func deriveDelegatorAddress(operatorAddress, hrp string) (string, error) {
 	_, bz, err := bech32.DecodeAndConvert(operatorAddress)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode bech32 address: %w", err)
@@ -102,11 +100,11 @@ func deriveDelegatorAddress(operatorAddress string) (string, error) {
 }
 
 func NewValidatorFromFields(
-	address, pubKey, pubKeyType, name, identity, website, securityContact, details,
+	hrp, address, pubKey, pubKeyType, name, identity, website, securityContact, details,
 	commissionRate, maxRate, maxChangeRate, minSelfDelegation, memo, denom, operatorPublicKey string,
 	amount int64,
 ) (*Validator, error) {
-	delegatorAddress, err := deriveDelegatorAddress(address)
+	delegatorAddress, err := deriveDelegatorAddress(address, hrp)
 	if err != nil {
 		return nil, err
 	}

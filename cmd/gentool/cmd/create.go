@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/internal/app"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/csv"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
@@ -27,88 +26,58 @@ var createCmd = &cobra.Command{
 			return fmt.Errorf("--input-genesis is required: path to a baseline genesis file from '<chaind> init'")
 		}
 
-		// Configure global SDK state before any address encoding occurs.
 		hrp := viper.GetString("chain.address_prefix")
 		if hrp == "" {
 			return fmt.Errorf("chain.address_prefix is required in config")
 		}
-		sdkConfig := sdk.GetConfig()
-		sdkConfig.SetBech32PrefixForAccount(hrp, hrp+"pub")
-		sdkConfig.SetBech32PrefixForValidator(hrp+"valoper", hrp+"valoperpub")
-		sdkConfig.SetBech32PrefixForConsensusNode(hrp+"valcons", hrp+"valconspub")
-		sdkConfig.Seal()
-
-		sdk.DefaultBondDenom = viper.GetString("default_bond_denom")
-
 		cfg := buildChainConfig(hrp)
 
-		encodingConfig, clientCtx, appGenState, appGenesis, err := app.LoadGenesis(inputGenesis, cfg)
+		raw, err := os.ReadFile(inputGenesis)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read --input-genesis %s: %w", inputGenesis, err)
 		}
 
 		moduleAddresses := computeAllModuleAddresses(hrp, cfg.ExtraModules)
 
-		claimRepository := csv.NewCSVClaimRepository(viper.GetString("claims.file_name"), moduleAddresses)
-		grantRepository := csv.NewCSVGrantRepository(viper.GetString("grants.file_name"), moduleAddresses)
-		initialAccountsRepository := csv.NewCSVInitialAccountsRepository(viper.GetString("accounts.file_name"), moduleAddresses)
-		validatorsRepository := gentx.NewValidatorRepository(viper.GetString("validators.gentx_dir"))
-
+		repos := genesis.Repositories{
+			Claims:          csv.NewCSVClaimRepository(viper.GetString("claims.file_name"), moduleAddresses),
+			Grants:          csv.NewCSVGrantRepository(viper.GetString("grants.file_name"), moduleAddresses),
+			InitialAccounts: csv.NewCSVInitialAccountsRepository(viper.GetString("accounts.file_name"), moduleAddresses),
+			Validators:      gentx.NewValidatorRepository(viper.GetString("validators.gentx_dir"), hrp),
+		}
 		// authz/feegrant are optional: a nil repository signals "module not configured".
-		var authzGrantRepository genesis.AuthzGrantRepository
 		if viper.IsSet("authz.file_name") {
-			authzGrantRepository = csv.NewCSVAuthzGrantRepository(viper.GetString("authz.file_name"), moduleAddresses)
+			repos.AuthzGrants = csv.NewCSVAuthzGrantRepository(viper.GetString("authz.file_name"), moduleAddresses)
 		}
-		var feeAllowanceRepository genesis.FeeAllowanceRepository
 		if viper.IsSet("feegrant.file_name") {
-			feeAllowanceRepository = csv.NewCSVFeeAllowanceRepository(viper.GetString("feegrant.file_name"), moduleAddresses)
+			repos.FeeAllowances = csv.NewCSVFeeAllowanceRepository(viper.GetString("feegrant.file_name"), moduleAddresses)
 		}
 
-		appStateManager := app.NewAppStateManager(
-			cfg,
-			claimRepository,
-			grantRepository,
-			initialAccountsRepository,
-			validatorsRepository,
-			authzGrantRepository,
-			feeAllowanceRepository,
-			appGenState,
-			appGenesis,
-			encodingConfig,
-			clientCtx,
-		)
-
-		outputPath := viper.GetString("genesis.output")
-		appGenesis, shares, err := appStateManager.SetupAppState(context.Background(), outputPath)
+		appGenesis, err := genesis.Build(context.Background(), raw, cfg, repos)
 		if err != nil {
 			slog.Error(err.Error())
 			return err
 		}
 
-		consensus := app.NewConsensus(validatorsRepository, appGenesis, encodingConfig.TxConfig.SigningContext().AddressCodec(), shares)
-		if err = consensus.SetParams(); err != nil {
-			return err
-		}
-
-		return appGenesis.SaveAs(outputPath)
+		return appGenesis.SaveAs(viper.GetString("genesis.output"))
 	},
 }
 
-// buildChainConfig assembles the app.ChainConfig from viper. This is the single
-// place viper is read for genesis construction; internal/app takes the struct.
-func buildChainConfig(hrp string) app.ChainConfig {
+// buildChainConfig assembles the genesis.ChainConfig from viper. This is the single
+// place viper is read for genesis construction; the genesis package takes the struct.
+func buildChainConfig(hrp string) genesis.ChainConfig {
 	type extraModuleConfig struct {
 		Name        string   `mapstructure:"name"`
 		Permissions []string `mapstructure:"permissions"`
 	}
 	var raw []extraModuleConfig
 	_ = viper.UnmarshalKey("modules.extra", &raw)
-	extra := make([]app.ExtraModule, 0, len(raw))
+	extra := make([]genesis.ExtraModule, 0, len(raw))
 	for _, em := range raw {
-		extra = append(extra, app.ExtraModule{Name: em.Name, Permissions: em.Permissions})
+		extra = append(extra, genesis.ExtraModule{Name: em.Name, Permissions: em.Permissions})
 	}
 
-	return app.ChainConfig{
+	return genesis.ChainConfig{
 		ChainID:       viper.GetString("chain.id"),
 		AppName:       viper.GetString("app.name"),
 		AppVersion:    viper.GetString("app.version"),
@@ -161,7 +130,7 @@ func buildChainConfig(hrp string) app.ChainConfig {
 	}
 }
 
-func computeAllModuleAddresses(hrp string, extraModules []app.ExtraModule) map[string]bool {
+func computeAllModuleAddresses(hrp string, extraModules []genesis.ExtraModule) map[string]bool {
 	names := make([]string, 0, len(encoding.StandardModuleNames)+len(extraModules))
 	names = append(names, encoding.StandardModuleNames...)
 	for _, em := range extraModules {

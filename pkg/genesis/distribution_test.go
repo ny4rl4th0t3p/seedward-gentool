@@ -1,4 +1,4 @@
-package app
+package genesis
 
 import (
 	"encoding/json"

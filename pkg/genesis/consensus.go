@@ -1,4 +1,4 @@
-package app
+package genesis
 
 import (
 	"context"
@@ -10,8 +10,6 @@ import (
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	comettypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil/types"
-
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis"
 )
 
 const (
@@ -28,12 +26,12 @@ const (
 type Consensus struct {
 	appGenesis *types.AppGenesis
 	codec      address.Codec
-	repo       genesis.ValidatorRepository
+	repo       ValidatorRepository
 	shares     map[string]int64
 }
 
 func NewConsensus(
-	repo genesis.ValidatorRepository, appGenesis *types.AppGenesis, codec address.Codec, shares map[string]int64,
+	repo ValidatorRepository, appGenesis *types.AppGenesis, codec address.Codec, shares map[string]int64,
 ) *Consensus {
 	return &Consensus{
 		appGenesis: appGenesis,

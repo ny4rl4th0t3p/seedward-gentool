@@ -1,4 +1,4 @@
-package app
+package genesis
 
 import (
 	"context"
@@ -11,17 +11,16 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 )
 
 type StateManager struct {
-	claimRepository        genesis.ClaimRepository
-	grantRepository        genesis.GrantRepository
-	initialAccountsRepo    genesis.InitialAccountsRepository
-	validatorRepository    genesis.ValidatorRepository
-	authzGrantRepository   genesis.AuthzGrantRepository
-	feeAllowanceRepository genesis.FeeAllowanceRepository
+	claimRepository        ClaimRepository
+	grantRepository        GrantRepository
+	initialAccountsRepo    InitialAccountsRepository
+	validatorRepository    ValidatorRepository
+	authzGrantRepository   AuthzGrantRepository
+	feeAllowanceRepository FeeAllowanceRepository
 	accounts               *Accounts
 	appGenState            map[string]json.RawMessage
 	appGenesis             *genutiltypes.AppGenesis
@@ -32,12 +31,12 @@ type StateManager struct {
 
 func NewAppStateManager(
 	cfg ChainConfig,
-	claimRepository genesis.ClaimRepository,
-	grantRepository genesis.GrantRepository,
-	initialAccountsRepo genesis.InitialAccountsRepository,
-	validatorRepository genesis.ValidatorRepository,
-	authzGrantRepository genesis.AuthzGrantRepository,
-	feeAllowanceRepository genesis.FeeAllowanceRepository,
+	claimRepository ClaimRepository,
+	grantRepository GrantRepository,
+	initialAccountsRepo InitialAccountsRepository,
+	validatorRepository ValidatorRepository,
+	authzGrantRepository AuthzGrantRepository,
+	feeAllowanceRepository FeeAllowanceRepository,
 	appGenState map[string]json.RawMessage,
 	appGenesis *genutiltypes.AppGenesis,
 	encodingConfig encoding.EncodingConfig,
@@ -59,7 +58,7 @@ func NewAppStateManager(
 	}
 }
 
-func (asm StateManager) SetupAppState(ctx context.Context, outputPath string) (*genutiltypes.AppGenesis, map[string]int64, error) {
+func (asm StateManager) SetupAppState(ctx context.Context) (*genutiltypes.AppGenesis, map[string]int64, error) {
 	slog.Info("Fixing governance parameters...")
 	if err := asm.fixGovernanceParameters(asm.appGenState); err != nil {
 		return nil, nil, err
@@ -109,9 +108,9 @@ func (asm StateManager) SetupAppState(ctx context.Context, outputPath string) (*
 		return nil, nil, fmt.Errorf("supply validation failed: %w", err)
 	}
 
-	slog.Info("Saving final genesis file...")
+	slog.Info("Sealing final genesis state...")
 	genesisTime := time.Unix(asm.cfg.GenesisTime, 0).UTC()
-	if err := saveGenesis(asm.appGenState, asm.appGenesis, genesisTime, outputPath); err != nil {
+	if err := sealAppGenesis(asm.appGenState, asm.appGenesis, genesisTime); err != nil {
 		return nil, nil, err
 	}
 

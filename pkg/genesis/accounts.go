@@ -1,4 +1,4 @@
-package app
+package genesis
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/validator"
 )
@@ -27,18 +26,18 @@ const defaultNonStakedAmount = 100_000
 
 type Accounts struct {
 	cfg                 ChainConfig
-	claimRepository     genesis.ClaimRepository
-	grantRepository     genesis.GrantRepository
-	initialAccountsRepo genesis.InitialAccountsRepository
-	validatorRepository genesis.ValidatorRepository
+	claimRepository     ClaimRepository
+	grantRepository     GrantRepository
+	initialAccountsRepo InitialAccountsRepository
+	validatorRepository ValidatorRepository
 }
 
 func NewAccounts(
 	cfg ChainConfig,
-	claimRepository genesis.ClaimRepository,
-	grantRepository genesis.GrantRepository,
-	initialAccountsRepo genesis.InitialAccountsRepository,
-	validatorRepository genesis.ValidatorRepository,
+	claimRepository ClaimRepository,
+	grantRepository GrantRepository,
+	initialAccountsRepo InitialAccountsRepository,
+	validatorRepository ValidatorRepository,
 ) *Accounts {
 	return &Accounts{
 		cfg:                 cfg,
