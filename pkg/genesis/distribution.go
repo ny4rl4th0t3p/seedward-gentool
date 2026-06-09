@@ -13,7 +13,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-func (asm StateManager) setDistribution(appGenState map[string]json.RawMessage, delegations []stakingtypes.Delegation) error {
+func (asm stateManager) setDistribution(appGenState map[string]json.RawMessage, delegations []stakingtypes.Delegation) error {
 	validators, err := asm.validatorRepository.GetValidators(context.Background())
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (asm StateManager) setDistribution(appGenState map[string]json.RawMessage, 
 	return nil
 }
 
-func (asm StateManager) seedCommunityPool(appGenState map[string]json.RawMessage, distState *distributiontypes.GenesisState) error {
+func (asm stateManager) seedCommunityPool(appGenState map[string]json.RawMessage, distState *distributiontypes.GenesisState) error {
 	poolAmt := asm.cfg.CommunityPoolAmount
 	if poolAmt <= 0 {
 		return nil

@@ -29,7 +29,7 @@ func readMintState(t *testing.T, appGenState map[string]json.RawMessage, ec enco
 
 func TestFixMintParameters_SetsMintDenom(t *testing.T) {
 	appGenState, ec := mintAppState(t)
-	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{BondDenom: "ustake"}}
+	asm := stateManager{encodingConfig: ec, cfg: ChainConfig{BondDenom: "ustake"}}
 	require.NoError(t, asm.fixMintParameters(appGenState))
 
 	gs := readMintState(t, appGenState, ec)
@@ -38,7 +38,7 @@ func TestFixMintParameters_SetsMintDenom(t *testing.T) {
 
 func TestFixMintParameters_BlocksPerYear(t *testing.T) {
 	appGenState, ec := mintAppState(t)
-	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{BondDenom: "uatom", BlocksPerYear: 6_000_000}}
+	asm := stateManager{encodingConfig: ec, cfg: ChainConfig{BondDenom: "uatom", BlocksPerYear: 6_000_000}}
 	require.NoError(t, asm.fixMintParameters(appGenState))
 
 	gs := readMintState(t, appGenState, ec)
@@ -47,7 +47,7 @@ func TestFixMintParameters_BlocksPerYear(t *testing.T) {
 
 func TestFixMintParameters_InflationParams(t *testing.T) {
 	appGenState, ec := mintAppState(t)
-	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{
+	asm := stateManager{encodingConfig: ec, cfg: ChainConfig{
 		BondDenom:           "uatom",
 		InflationRateChange: "0.13",
 		InflationMax:        "0.20",

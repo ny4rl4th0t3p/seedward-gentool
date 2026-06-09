@@ -23,17 +23,17 @@ const (
 	defaultEvidenceMaxBytes        = 1048576
 )
 
-type Consensus struct {
+type consensus struct {
 	appGenesis *types.AppGenesis
 	codec      address.Codec
 	repo       ValidatorRepository
 	shares     map[string]int64
 }
 
-func NewConsensus(
+func newConsensus(
 	repo ValidatorRepository, appGenesis *types.AppGenesis, codec address.Codec, shares map[string]int64,
-) *Consensus {
-	return &Consensus{
+) *consensus {
+	return &consensus{
 		appGenesis: appGenesis,
 		codec:      codec,
 		repo:       repo,
@@ -41,7 +41,7 @@ func NewConsensus(
 	}
 }
 
-func (c *Consensus) SetParams() error {
+func (c *consensus) setParams() error {
 	validators, err := c.repo.GetValidators(context.Background())
 	if err != nil {
 		return err

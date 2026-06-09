@@ -16,10 +16,10 @@ import (
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/validator"
 )
 
-func distributionStateManager(t *testing.T, validators []validator.Validator, repoErr error, cfg ChainConfig) StateManager {
+func distributionStateManager(t *testing.T, validators []validator.Validator, repoErr error, cfg ChainConfig) stateManager {
 	t.Helper()
 	ec := encoding.NewEncodingConfig()
-	return StateManager{
+	return stateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: validators, err: repoErr},
 		cfg:                 cfg,
@@ -97,7 +97,7 @@ func TestSetDistribution_WithDelegations_AddsExtraDelegatorInfos(t *testing.T) {
 func TestSetDistribution_CommunityPool_SetsFeepoolAndBank(t *testing.T) {
 	const poolAmt = int64(1_000_000)
 	ec := encoding.NewEncodingConfig()
-	asm := StateManager{
+	asm := stateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{},
 		cfg: ChainConfig{

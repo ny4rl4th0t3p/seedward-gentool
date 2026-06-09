@@ -59,7 +59,7 @@ func Build(ctx context.Context, baseGenesis []byte, cfg ChainConfig, repos Repos
 		return nil, err
 	}
 
-	asm := NewAppStateManager(
+	asm := newAppStateManager(
 		cfg,
 		repos.Claims,
 		repos.Grants,
@@ -73,13 +73,13 @@ func Build(ctx context.Context, baseGenesis []byte, cfg ChainConfig, repos Repos
 		clientCtx,
 	)
 
-	finalGenesis, shares, err := asm.SetupAppState(ctx)
+	finalGenesis, shares, err := asm.setupAppState(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	consensus := NewConsensus(repos.Validators, finalGenesis, encodingConfig.TxConfig.SigningContext().AddressCodec(), shares)
-	if err := consensus.SetParams(); err != nil {
+	consensus := newConsensus(repos.Validators, finalGenesis, encodingConfig.TxConfig.SigningContext().AddressCodec(), shares)
+	if err := consensus.setParams(); err != nil {
 		return nil, err
 	}
 

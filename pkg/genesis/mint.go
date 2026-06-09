@@ -7,7 +7,7 @@ import (
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
-func (asm StateManager) fixMintParameters(appGenState map[string]json.RawMessage) error {
+func (asm stateManager) fixMintParameters(appGenState map[string]json.RawMessage) error {
 	var mintGenState minttypes.GenesisState
 	return updateModuleState(asm.encodingConfig.Codec, appGenState, "mint", &mintGenState, func() error {
 		mintGenState.Params.MintDenom = asm.cfg.BondDenom
