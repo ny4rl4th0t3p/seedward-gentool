@@ -30,7 +30,7 @@ func readGovState(t *testing.T, appGenState map[string]json.RawMessage, ec encod
 
 func TestFixGovernanceParameters_NoViperKeys_NoChange(t *testing.T) {
 	appGenState, ec := govAppState(t)
-	asm := StateManager{encodingConfig: ec}
+	asm := stateManager{encodingConfig: ec}
 	require.NoError(t, asm.fixGovernanceParameters(appGenState))
 	gs := readGovState(t, appGenState, ec)
 	assert.NotNil(t, gs.Params)
@@ -38,7 +38,7 @@ func TestFixGovernanceParameters_NoViperKeys_NoChange(t *testing.T) {
 
 func TestFixGovernanceParameters_MinDeposit(t *testing.T) {
 	appGenState, ec := govAppState(t)
-	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{BondDenom: "uatom", GovMinDepositAmount: 500_000}}
+	asm := stateManager{encodingConfig: ec, cfg: ChainConfig{BondDenom: "uatom", GovMinDepositAmount: 500_000}}
 	require.NoError(t, asm.fixGovernanceParameters(appGenState))
 
 	gs := readGovState(t, appGenState, ec)
@@ -49,7 +49,7 @@ func TestFixGovernanceParameters_MinDeposit(t *testing.T) {
 
 func TestFixGovernanceParameters_VotingPeriod(t *testing.T) {
 	appGenState, ec := govAppState(t)
-	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{GovVotingPeriod: "72h"}}
+	asm := stateManager{encodingConfig: ec, cfg: ChainConfig{GovVotingPeriod: "72h"}}
 	require.NoError(t, asm.fixGovernanceParameters(appGenState))
 
 	gs := readGovState(t, appGenState, ec)
@@ -59,7 +59,7 @@ func TestFixGovernanceParameters_VotingPeriod(t *testing.T) {
 
 func TestFixGovernanceParameters_InvalidVotingPeriod_ReturnsError(t *testing.T) {
 	appGenState, ec := govAppState(t)
-	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{GovVotingPeriod: "not-a-duration"}}
+	asm := stateManager{encodingConfig: ec, cfg: ChainConfig{GovVotingPeriod: "not-a-duration"}}
 	err := asm.fixGovernanceParameters(appGenState)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid gov.voting_period")
@@ -67,7 +67,7 @@ func TestFixGovernanceParameters_InvalidVotingPeriod_ReturnsError(t *testing.T) 
 
 func TestFixGovernanceParameters_ExpeditedParams(t *testing.T) {
 	appGenState, ec := govAppState(t)
-	asm := StateManager{encodingConfig: ec, cfg: ChainConfig{
+	asm := stateManager{encodingConfig: ec, cfg: ChainConfig{
 		BondDenom:                    "uatom",
 		GovExpeditedMinDepositAmount: 1_000_000,
 		GovExpeditedVotingPeriod:     "24h",

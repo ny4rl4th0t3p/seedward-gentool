@@ -13,14 +13,14 @@ import (
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 )
 
-func newBankStateManager(t *testing.T, cfg ChainConfig) StateManager {
+func newBankStateManager(t *testing.T, cfg ChainConfig) stateManager {
 	t.Helper()
 	ec := encoding.NewEncodingConfig()
 	clientCtx := client.Context{}.WithCodec(ec.Codec)
 	bankDefault := banktypes.DefaultGenesisState()
 	bz, err := ec.Codec.MarshalJSON(bankDefault)
 	require.NoError(t, err)
-	return StateManager{
+	return stateManager{
 		encodingConfig: ec,
 		clientCtx:      clientCtx,
 		appGenState:    map[string]json.RawMessage{"bank": bz},
@@ -70,14 +70,14 @@ func TestSetDenominationMetadata_BaseEqualsDisplay_SingleDenomUnit(t *testing.T)
 	assert.Len(t, bankState.DenomMetadata[0].DenomUnits, 1)
 }
 
-func bankStateManagerWithSupply(t *testing.T, supply sdk.Coins, cfg ChainConfig) StateManager {
+func bankStateManagerWithSupply(t *testing.T, supply sdk.Coins, cfg ChainConfig) stateManager {
 	t.Helper()
 	ec := encoding.NewEncodingConfig()
 	bankState := banktypes.DefaultGenesisState()
 	bankState.Supply = supply
 	bankBz, err := ec.Codec.MarshalJSON(bankState)
 	require.NoError(t, err)
-	return StateManager{
+	return stateManager{
 		clientCtx:   client.Context{}.WithCodec(ec.Codec),
 		appGenState: map[string]json.RawMessage{"bank": bankBz},
 		cfg:         cfg,
@@ -98,6 +98,5 @@ func TestValidateSupply_Mismatch_ReturnsError(t *testing.T) {
 		ChainConfig{BondDenom: "uatom", TotalSupply: 9_999_999},
 	)
 	err := asm.validateSupply()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "total supply mismatch")
+	require.ErrorIs(t, err, ErrSupplyMismatch)
 }

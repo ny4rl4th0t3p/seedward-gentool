@@ -11,7 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-func (asm StateManager) setFeegrantState(ctx context.Context, appGenState map[string]json.RawMessage) error {
+func (asm stateManager) setFeegrantState(ctx context.Context, appGenState map[string]json.RawMessage) error {
 	if asm.feeAllowanceRepository == nil {
 		return nil
 	}

@@ -75,7 +75,7 @@ func stakingTestConfig() ChainConfig {
 func TestSetStakingState_ValidatorRepoError(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	sentinel := errors.New("repo fail")
-	asm := StateManager{
+	asm := stateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{err: sentinel},
 	}
@@ -86,7 +86,7 @@ func TestSetStakingState_ValidatorRepoError(t *testing.T) {
 func TestSetStakingState_SingleValidator_InStakingState(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	v := testValidator(t, 1) // amount = 1_000_000
-	asm := StateManager{
+	asm := stateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: []validator.Validator{v}},
 		cfg:                 stakingTestConfig(),
@@ -110,7 +110,7 @@ func TestSetStakingState_SharesAddedToTokens(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	v := testValidator(t, 2) // amount = 1_000_000
 	shares := map[string]int64{"validator-2": 3_000_000}
-	asm := StateManager{
+	asm := stateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: []validator.Validator{v}},
 		cfg:                 stakingTestConfig(),
@@ -135,7 +135,7 @@ func TestSetStakingState_DelegationsIncluded(t *testing.T) {
 		ValidatorAddress: v.OperatorAddress(),
 		Shares:           math.LegacyNewDec(500_000),
 	}
-	asm := StateManager{
+	asm := stateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: []validator.Validator{v}},
 		cfg:                 stakingTestConfig(),
@@ -155,7 +155,7 @@ func TestSetStakingState_DelegationsIncluded(t *testing.T) {
 
 func TestSetStakingState_GenutilCleared(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
-	asm := StateManager{
+	asm := stateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{},
 		cfg:                 stakingTestConfig(),

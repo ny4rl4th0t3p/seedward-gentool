@@ -10,7 +10,7 @@ import (
 	authztypes "github.com/cosmos/cosmos-sdk/x/authz"
 )
 
-func (asm StateManager) setAuthzState(ctx context.Context, appGenState map[string]json.RawMessage) error {
+func (asm stateManager) setAuthzState(ctx context.Context, appGenState map[string]json.RawMessage) error {
 	if asm.authzGrantRepository == nil {
 		return nil
 	}

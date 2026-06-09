@@ -51,7 +51,7 @@ func readAuthzState(t *testing.T, appGenState map[string]json.RawMessage, ec enc
 func TestSetAuthzState_NilRepo_Skipped(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	appGenState := authzAppState(t, ec)
-	asm := StateManager{encodingConfig: ec} // nil authzGrantRepository → not configured
+	asm := stateManager{encodingConfig: ec} // nil authzGrantRepository → not configured
 
 	require.NoError(t, asm.setAuthzState(context.Background(), appGenState))
 
@@ -62,7 +62,7 @@ func TestSetAuthzState_NilRepo_Skipped(t *testing.T) {
 func TestSetAuthzState_EmptyGrants_Skipped(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	appGenState := authzAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: nil}}
+	asm := stateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: nil}}
 
 	require.NoError(t, asm.setAuthzState(context.Background(), appGenState))
 
@@ -74,7 +74,7 @@ func TestSetAuthzState_RepoError_ReturnsError(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	appGenState := authzAppState(t, ec)
 	sentinel := errors.New("repo fail")
-	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{err: sentinel}}
+	asm := stateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{err: sentinel}}
 
 	err := asm.setAuthzState(context.Background(), appGenState)
 	require.ErrorIs(t, err, sentinel)
@@ -86,7 +86,7 @@ func TestSetAuthzState_PopulatedGrants_WrittenToGenesis(t *testing.T) {
 	g2 := makeAuthzGrant(t, ec, 3, 4, "/cosmos.staking.v1beta1.MsgDelegate", 1900000000)
 
 	appGenState := authzAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: []genesisauthz.AuthzGrant{g1, g2}}}
+	asm := stateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: []genesisauthz.AuthzGrant{g1, g2}}}
 
 	require.NoError(t, asm.setAuthzState(context.Background(), appGenState))
 
@@ -104,7 +104,7 @@ func TestSetAuthzState_GenericAuthorization_TypeURLContainsGeneric(t *testing.T)
 	g := makeAuthzGrant(t, ec, 1, 2, "/cosmos.bank.v1beta1.MsgSend", 0)
 
 	appGenState := authzAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: []genesisauthz.AuthzGrant{g}}}
+	asm := stateManager{encodingConfig: ec, authzGrantRepository: stubAuthzGrantRepo{grants: []genesisauthz.AuthzGrant{g}}}
 
 	require.NoError(t, asm.setAuthzState(context.Background(), appGenState))
 

@@ -3,7 +3,6 @@ package genesis
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -22,10 +21,6 @@ import (
 
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/vestingaccount"
-)
-
-const (
-	InvalidVestingErr = "invalid vesting parameters; must supply start and end time or end time"
 )
 
 // parseBaseGenesis parses a baseline genesis document (raw JSON from '<chaind>
@@ -151,7 +146,7 @@ func updateModuleState(
 	return nil
 }
 
-func AddCustomVestingGenesisAccount(
+func addCustomVestingGenesisAccount(
 	vestingAccount vestingaccount.VestingAccount,
 	accAddr sdk.AccAddress,
 	vestingStart, vestingEnd int64,
@@ -202,7 +197,7 @@ func createVestingAccount(
 		return nil, banktypes.Balance{}, fmt.Errorf("failed to create base vesting account: %w", err)
 	}
 	if baseVestingAccount.OriginalVesting.IsAnyGT(balances.Coins) {
-		return nil, banktypes.Balance{}, errors.New("vesting amount cannot be greater than total amount")
+		return nil, banktypes.Balance{}, fmt.Errorf("%w: vesting amount cannot be greater than total amount", ErrInvalidVesting)
 	}
 
 	if vestingAccount.DelegateTo() != "" {
@@ -210,8 +205,8 @@ func createVestingAccount(
 		// would go negative (panic), and the account would have no balance to pay gas.
 		if vestingAccount.Amount() <= nonStakedReserve {
 			return nil, banktypes.Balance{}, fmt.Errorf(
-				"vesting account %s delegating to %s: amount %d must exceed the non_staked_amount reserve %d",
-				vestingAccount.Address(), vestingAccount.DelegateTo(), vestingAccount.Amount(), nonStakedReserve,
+				"%w: vesting account %s delegating to %s: amount %d not above reserve %d",
+				ErrDelegationBelowReserve, vestingAccount.Address(), vestingAccount.DelegateTo(), vestingAccount.Amount(), nonStakedReserve,
 			)
 		}
 		baseVestingAccount.DelegatedVesting = baseVestingAccount.GetOriginalVesting().Sub(sdk.Coin{
@@ -227,7 +222,7 @@ func createVestingAccount(
 	case vestingEnd != 0:
 		genAccount = authvesting.NewDelayedVestingAccountRaw(baseVestingAccount)
 	default:
-		return nil, banktypes.Balance{}, errors.New(InvalidVestingErr)
+		return nil, banktypes.Balance{}, fmt.Errorf("%w: must supply start and end time or end time", ErrInvalidVesting)
 	}
 	if err := genAccount.Validate(); err != nil {
 		return nil, banktypes.Balance{}, fmt.Errorf("failed to validate new genesis account: %w", err)
@@ -286,10 +281,10 @@ func updateBalances(
 	return nil
 }
 
-// AddCustomModuleGenesisAccount adds a module account (and its balance) to the
+// addCustomModuleGenesisAccount adds a module account (and its balance) to the
 // in-memory auth/bank state. The caller is responsible for loading accs/
 // bankGenState and sealing them back into the genesis app state.
-func AddCustomModuleGenesisAccount(
+func addCustomModuleGenesisAccount(
 	accAddr sdk.AccAddress,
 	amountStr,
 	moduleName string,

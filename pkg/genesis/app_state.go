@@ -14,14 +14,14 @@ import (
 	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
 )
 
-type StateManager struct {
+type stateManager struct {
 	claimRepository        ClaimRepository
 	grantRepository        GrantRepository
 	initialAccountsRepo    InitialAccountsRepository
 	validatorRepository    ValidatorRepository
 	authzGrantRepository   AuthzGrantRepository
 	feeAllowanceRepository FeeAllowanceRepository
-	accounts               *Accounts
+	accounts               *accountsBuilder
 	appGenState            map[string]json.RawMessage
 	appGenesis             *genutiltypes.AppGenesis
 	encodingConfig         encoding.EncodingConfig
@@ -29,7 +29,7 @@ type StateManager struct {
 	cfg                    ChainConfig
 }
 
-func NewAppStateManager(
+func newAppStateManager(
 	cfg ChainConfig,
 	claimRepository ClaimRepository,
 	grantRepository GrantRepository,
@@ -41,15 +41,15 @@ func NewAppStateManager(
 	appGenesis *genutiltypes.AppGenesis,
 	encodingConfig encoding.EncodingConfig,
 	clientCtx client.Context,
-) *StateManager {
-	return &StateManager{
+) *stateManager {
+	return &stateManager{
 		claimRepository:        claimRepository,
 		grantRepository:        grantRepository,
 		initialAccountsRepo:    initialAccountsRepo,
 		validatorRepository:    validatorRepository,
 		authzGrantRepository:   authzGrantRepository,
 		feeAllowanceRepository: feeAllowanceRepository,
-		accounts:               NewAccounts(cfg, claimRepository, grantRepository, initialAccountsRepo, validatorRepository),
+		accounts:               newAccountsBuilder(cfg, claimRepository, grantRepository, initialAccountsRepo, validatorRepository),
 		appGenState:            appGenState,
 		appGenesis:             appGenesis,
 		encodingConfig:         encodingConfig,
@@ -58,7 +58,7 @@ func NewAppStateManager(
 	}
 }
 
-func (asm StateManager) SetupAppState(ctx context.Context) (*genutiltypes.AppGenesis, map[string]int64, error) {
+func (asm stateManager) setupAppState(ctx context.Context) (*genutiltypes.AppGenesis, map[string]int64, error) {
 	slog.Info("Fixing governance parameters...")
 	if err := asm.fixGovernanceParameters(asm.appGenState); err != nil {
 		return nil, nil, err
@@ -114,11 +114,11 @@ func (asm StateManager) SetupAppState(ctx context.Context) (*genutiltypes.AppGen
 		return nil, nil, err
 	}
 
-	slog.Info("SetupAppState completed successfully.")
+	slog.Info("setupAppState completed successfully.")
 	return asm.appGenesis, shares, nil
 }
 
-func (asm StateManager) configureModuleStates(ctx context.Context, delegations []stakingtypes.Delegation, shares map[string]int64) error {
+func (asm stateManager) configureModuleStates(ctx context.Context, delegations []stakingtypes.Delegation, shares map[string]int64) error {
 	slog.Info("Configuring staking parameters...")
 	if err := asm.setStakingState(asm.appGenState, delegations, shares); err != nil {
 		return err

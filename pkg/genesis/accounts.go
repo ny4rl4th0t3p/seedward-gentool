@@ -24,7 +24,7 @@ import (
 // delegating account when accounts.non_staked_amount is unset. See ChainConfig.NonStakedAmount.
 const defaultNonStakedAmount = 100_000
 
-type Accounts struct {
+type accountsBuilder struct {
 	cfg                 ChainConfig
 	claimRepository     ClaimRepository
 	grantRepository     GrantRepository
@@ -32,14 +32,14 @@ type Accounts struct {
 	validatorRepository ValidatorRepository
 }
 
-func NewAccounts(
+func newAccountsBuilder(
 	cfg ChainConfig,
 	claimRepository ClaimRepository,
 	grantRepository GrantRepository,
 	initialAccountsRepo InitialAccountsRepository,
 	validatorRepository ValidatorRepository,
-) *Accounts {
-	return &Accounts{
+) *accountsBuilder {
+	return &accountsBuilder{
 		cfg:                 cfg,
 		claimRepository:     claimRepository,
 		grantRepository:     grantRepository,
@@ -48,7 +48,7 @@ func NewAccounts(
 	}
 }
 
-func (va Accounts) fetchValidatorsShares(encodingConfig encoding.EncodingConfig) (map[string]int64, error) {
+func (va accountsBuilder) fetchValidatorsShares(encodingConfig encoding.EncodingConfig) (map[string]int64, error) {
 	shares := map[string]int64{}
 	claims, err := va.claimRepository.GetClaims(context.Background(), encodingConfig)
 	if err != nil {
@@ -59,8 +59,8 @@ func (va Accounts) fetchValidatorsShares(encodingConfig encoding.EncodingConfig)
 		if claim.DelegateTo() != "" {
 			if claim.Amount() <= reserve {
 				return nil, fmt.Errorf(
-					"claim %s delegating to %s: amount %d must exceed the non_staked_amount reserve %d",
-					claim.Address(), claim.DelegateTo(), claim.Amount(), reserve,
+					"%w: claim %s delegating to %s: amount %d not above reserve %d",
+					ErrDelegationBelowReserve, claim.Address(), claim.DelegateTo(), claim.Amount(), reserve,
 				)
 			}
 			delta := claim.Amount() - reserve
@@ -125,7 +125,7 @@ func sealAuthBankState(
 
 // Mutates the shared in-memory app state; delegations are returned so the caller
 // can wire them into the staking module.
-func (va Accounts) appendVestingAccounts(
+func (va accountsBuilder) appendVestingAccounts(
 	ctx context.Context,
 	encodingConfig encoding.EncodingConfig,
 	clientCtx client.Context,
@@ -159,7 +159,7 @@ func (va Accounts) appendVestingAccounts(
 		if err != nil {
 			return nil, err
 		}
-		accs, err = AddCustomVestingGenesisAccount(
+		accs, err = addCustomVestingGenesisAccount(
 			claim, addr, 0, va.cfg.ClaimsVestingEnd,
 			hrp, denom, reserve, encodingConfig, accs, bankGenState, true,
 		)
@@ -185,7 +185,7 @@ func (va Accounts) appendVestingAccounts(
 		if err != nil {
 			return nil, err
 		}
-		accs, err = AddCustomVestingGenesisAccount(
+		accs, err = addCustomVestingGenesisAccount(
 			grant, addr,
 			va.cfg.GrantsVestingStart,
 			va.cfg.GrantsVestingEnd,
@@ -207,7 +207,7 @@ type ValidatorAddresses struct {
 	DelegatorAddress string
 }
 
-func (va Accounts) appendValidators(
+func (va accountsBuilder) appendValidators(
 	ctx context.Context,
 	encodingConfig encoding.EncodingConfig,
 	clientCtx client.Context,
@@ -262,7 +262,7 @@ func buildValidatorReference(validators []validator.Validator) map[string]Valida
 	return ref
 }
 
-func (va Accounts) appendModuleAccounts(
+func (va accountsBuilder) appendModuleAccounts(
 	_ context.Context,
 	encodingConfig encoding.EncodingConfig,
 	clientCtx client.Context,
@@ -336,7 +336,7 @@ func (va Accounts) appendModuleAccounts(
 		if err != nil {
 			return err
 		}
-		accs, err = AddCustomModuleGenesisAccount(
+		accs, err = addCustomModuleGenesisAccount(
 			addr,
 			strconv.FormatInt(m.amount, 10)+denom,
 			key,
@@ -351,7 +351,7 @@ func (va Accounts) appendModuleAccounts(
 	return sealAuthBankState(clientCtx, accs, authGenState, bankGenState, appState)
 }
 
-func (va Accounts) appendInitialAccounts(
+func (va accountsBuilder) appendInitialAccounts(
 	encodingConfig encoding.EncodingConfig,
 	clientCtx client.Context,
 	appState map[string]json.RawMessage,

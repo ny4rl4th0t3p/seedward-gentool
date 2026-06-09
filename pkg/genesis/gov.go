@@ -10,7 +10,7 @@ import (
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 )
 
-func (asm StateManager) fixGovernanceParameters(appGenState map[string]json.RawMessage) error {
+func (asm stateManager) fixGovernanceParameters(appGenState map[string]json.RawMessage) error {
 	var govGenState govv1.GenesisState
 	return updateModuleState(asm.encodingConfig.Codec, appGenState, "gov", &govGenState, func() error {
 		if govGenState.Params == nil {

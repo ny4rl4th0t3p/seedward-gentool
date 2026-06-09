@@ -65,7 +65,7 @@ func makeClaim(t *testing.T, ec encoding.EncodingConfig, addrIdx byte, amount in
 }
 
 func TestFetchValidatorsShares_Empty(t *testing.T) {
-	acc := Accounts{claimRepository: stubClaimRepo{}}
+	acc := accountsBuilder{claimRepository: stubClaimRepo{}}
 	shares, err := acc.fetchValidatorsShares(encoding.NewEncodingConfig())
 	require.NoError(t, err)
 	assert.Empty(t, shares)
@@ -76,7 +76,7 @@ func TestFetchValidatorsShares_NoDelegateTo_EmptyShares(t *testing.T) {
 	claims := []vestingaccount.Claim{
 		makeClaim(t, ec, 70, 1_000_000, ""),
 	}
-	acc := Accounts{claimRepository: stubClaimRepo{claims: claims}}
+	acc := accountsBuilder{claimRepository: stubClaimRepo{claims: claims}}
 	shares, err := acc.fetchValidatorsShares(ec)
 	require.NoError(t, err)
 	assert.Empty(t, shares)
@@ -89,7 +89,7 @@ func TestFetchValidatorsShares_Accumulates(t *testing.T) {
 		makeClaim(t, ec, 70, 1_500_000, v1.OperatorAddress()),
 		makeClaim(t, ec, 71, 2_000_000, v1.OperatorAddress()),
 	}
-	acc := Accounts{claimRepository: stubClaimRepo{claims: claims}}
+	acc := accountsBuilder{claimRepository: stubClaimRepo{claims: claims}}
 	shares, err := acc.fetchValidatorsShares(ec)
 	require.NoError(t, err)
 	// delta1 = 1_500_000 - 100_000 = 1_400_000
@@ -107,7 +107,7 @@ func TestFetchValidatorsShares_Overflow_ReturnsError(t *testing.T) {
 		makeClaim(t, ec, 72, math.MaxInt64, v1.OperatorAddress()),
 		makeClaim(t, ec, 73, 200_001, v1.OperatorAddress()),
 	}
-	acc := Accounts{claimRepository: stubClaimRepo{claims: claims}}
+	acc := accountsBuilder{claimRepository: stubClaimRepo{claims: claims}}
 	_, err := acc.fetchValidatorsShares(ec)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "overflow")
@@ -120,10 +120,9 @@ func TestFetchValidatorsShares_AmountAtOrBelowReserve_ReturnsError(t *testing.T)
 	claims := []vestingaccount.Claim{
 		makeClaim(t, ec, 74, 100_000, v1.OperatorAddress()),
 	}
-	acc := Accounts{claimRepository: stubClaimRepo{claims: claims}}
+	acc := accountsBuilder{claimRepository: stubClaimRepo{claims: claims}}
 	_, err := acc.fetchValidatorsShares(ec)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must exceed")
+	require.ErrorIs(t, err, ErrDelegationBelowReserve)
 }
 
 func TestBuildValidatorReference_Normal(t *testing.T) {

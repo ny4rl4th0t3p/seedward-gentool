@@ -7,7 +7,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
-func (asm StateManager) setDenominationMetadata() error {
+func (asm stateManager) setDenominationMetadata() error {
 	base := asm.cfg.DenomBase
 	if base == "" {
 		// No denom metadata configured; preserve baseline.
@@ -47,12 +47,12 @@ func (asm StateManager) setDenominationMetadata() error {
 	return nil
 }
 
-func (asm StateManager) validateSupply() error {
+func (asm stateManager) validateSupply() error {
 	bankGenState := banktypes.GetGenesisStateFromAppState(asm.clientCtx.Codec, asm.appGenState)
 	supply := bankGenState.Supply.AmountOf(asm.cfg.BondDenom)
 	totalSupply := math.NewInt(asm.cfg.TotalSupply)
 	if !supply.Equal(totalSupply) {
-		return fmt.Errorf("total supply mismatch: got %s, expected %s", supply, totalSupply)
+		return fmt.Errorf("%w: got %s, expected %s", ErrSupplyMismatch, supply, totalSupply)
 	}
 	return nil
 }
