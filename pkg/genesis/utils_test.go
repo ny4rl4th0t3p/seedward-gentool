@@ -216,8 +216,7 @@ func TestCreateVestingAccount_BothZeroErrors(t *testing.T) {
 		testAccAddr(32), 0, 0,
 		"uatom", 100_000,
 	)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid vesting")
+	require.ErrorIs(t, err, ErrInvalidVesting)
 }
 
 func TestCreateVestingAccount_NoDelegation_DelegatedVestingEmpty(t *testing.T) {
@@ -251,8 +250,7 @@ func TestCreateVestingAccount_DelegatingAtOrBelowReserve_ReturnsError(t *testing
 		testAccAddr(35), 0, time.Now().Unix(),
 		"uatom", 100_000,
 	)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must exceed")
+	require.ErrorIs(t, err, ErrDelegationBelowReserve)
 }
 
 // --- allocateDelegatedFunds ---
@@ -429,7 +427,7 @@ func TestAddBaseGenesisAccount(t *testing.T) {
 	assert.Contains(t, err.Error(), "already exists")
 }
 
-// --- AddCustomModuleGenesisAccount (in-memory) ---
+// --- addCustomModuleGenesisAccount (in-memory) ---
 
 func TestAddCustomModuleGenesisAccountInMemory(t *testing.T) {
 	bank := &banktypes.GenesisState{}
@@ -438,7 +436,7 @@ func TestAddCustomModuleGenesisAccountInMemory(t *testing.T) {
 	// A module account's address is derived from its name; callers pass that
 	// same address as accAddr (as appendModuleAccounts does).
 	mintAddr := authtypes.NewModuleAddress("mint")
-	accs, err := AddCustomModuleGenesisAccount(
+	accs, err := addCustomModuleGenesisAccount(
 		mintAddr, "2000000uatom", "mint", []string{authtypes.Minter}, accs, bank,
 	)
 	require.NoError(t, err)
@@ -448,7 +446,7 @@ func TestAddCustomModuleGenesisAccountInMemory(t *testing.T) {
 	assert.Equal(t, int64(2_000_000), bank.Supply.AmountOf("uatom").Int64())
 
 	// Duplicate module address is rejected.
-	_, err = AddCustomModuleGenesisAccount(
+	_, err = addCustomModuleGenesisAccount(
 		mintAddr, "1uatom", "mint", []string{authtypes.Minter}, accs, bank,
 	)
 	require.Error(t, err)

@@ -13,7 +13,7 @@ import (
 
 const valconsHRPSuffix = "valcons"
 
-func (asm StateManager) setSlashingState(appGenState map[string]json.RawMessage) error {
+func (asm stateManager) setSlashingState(appGenState map[string]json.RawMessage) error {
 	validators, err := asm.validatorRepository.GetValidators(context.Background())
 	if err != nil {
 		return err

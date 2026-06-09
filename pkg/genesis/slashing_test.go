@@ -23,10 +23,10 @@ func slashingAppState(t *testing.T) map[string]json.RawMessage {
 	return map[string]json.RawMessage{"slashing": bz}
 }
 
-func slashingStateManager(t *testing.T, validators []validator.Validator, repoErr error, cfg ChainConfig) StateManager {
+func slashingStateManager(t *testing.T, validators []validator.Validator, repoErr error, cfg ChainConfig) stateManager {
 	t.Helper()
 	ec := encoding.NewEncodingConfig()
-	return StateManager{
+	return stateManager{
 		encodingConfig:      ec,
 		validatorRepository: stubValidatorRepo{validators: validators, err: repoErr},
 		cfg:                 cfg,

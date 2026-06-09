@@ -51,7 +51,7 @@ func readFeegrantState(t *testing.T, appGenState map[string]json.RawMessage, ec 
 func TestSetFeegrantState_NilRepo_Skipped(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	appGenState := feegrantAppState(t, ec)
-	asm := StateManager{encodingConfig: ec} // nil feeAllowanceRepository → not configured
+	asm := stateManager{encodingConfig: ec} // nil feeAllowanceRepository → not configured
 
 	require.NoError(t, asm.setFeegrantState(context.Background(), appGenState))
 
@@ -62,7 +62,7 @@ func TestSetFeegrantState_NilRepo_Skipped(t *testing.T) {
 func TestSetFeegrantState_EmptyAllowances_Skipped(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	appGenState := feegrantAppState(t, ec)
-	asm := StateManager{encodingConfig: ec, feeAllowanceRepository: stubFeeAllowanceRepo{}}
+	asm := stateManager{encodingConfig: ec, feeAllowanceRepository: stubFeeAllowanceRepo{}}
 
 	require.NoError(t, asm.setFeegrantState(context.Background(), appGenState))
 
@@ -74,7 +74,7 @@ func TestSetFeegrantState_RepoError_ReturnsError(t *testing.T) {
 	ec := encoding.NewEncodingConfig()
 	appGenState := feegrantAppState(t, ec)
 	sentinel := errors.New("repo fail")
-	asm := StateManager{encodingConfig: ec, feeAllowanceRepository: stubFeeAllowanceRepo{err: sentinel}}
+	asm := stateManager{encodingConfig: ec, feeAllowanceRepository: stubFeeAllowanceRepo{err: sentinel}}
 
 	err := asm.setFeegrantState(context.Background(), appGenState)
 	require.ErrorIs(t, err, sentinel)
@@ -85,7 +85,7 @@ func TestSetFeegrantState_NonZeroSpendLimit_WrittenToGenesis(t *testing.T) {
 	a := makeFeeAllowance(t, ec, 1, 2, 5_000_000, 0)
 
 	appGenState := feegrantAppState(t, ec)
-	asm := StateManager{
+	asm := stateManager{
 		encodingConfig:         ec,
 		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []genesisfeegrant.FeeAllowance{a}},
 		cfg:                    ChainConfig{BondDenom: "uatom"},
@@ -105,7 +105,7 @@ func TestSetFeegrantState_ZeroSpendLimit_NilSpendLimitInBasicAllowance(t *testin
 	a := makeFeeAllowance(t, ec, 1, 2, 0, 0)
 
 	appGenState := feegrantAppState(t, ec)
-	asm := StateManager{
+	asm := stateManager{
 		encodingConfig:         ec,
 		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []genesisfeegrant.FeeAllowance{a}},
 		cfg:                    ChainConfig{BondDenom: "uatom"},
@@ -129,7 +129,7 @@ func TestSetFeegrantState_WithExpiry_ExpirationSet(t *testing.T) {
 	a := makeFeeAllowance(t, ec, 1, 2, 1_000_000, 1900000000)
 
 	appGenState := feegrantAppState(t, ec)
-	asm := StateManager{
+	asm := stateManager{
 		encodingConfig:         ec,
 		feeAllowanceRepository: stubFeeAllowanceRepo{allowances: []genesisfeegrant.FeeAllowance{a}},
 		cfg:                    ChainConfig{BondDenom: "uatom"},

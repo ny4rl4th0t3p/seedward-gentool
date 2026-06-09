@@ -10,7 +10,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-func (asm StateManager) setStakingState(
+func (asm stateManager) setStakingState(
 	appGenState map[string]json.RawMessage,
 	claimsDelegations []stakingtypes.Delegation,
 	shares map[string]int64,
