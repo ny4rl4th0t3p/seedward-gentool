@@ -51,9 +51,6 @@ grants:
 accounts:
   total_supply: 500000000000000
   file_name: /path/to/accounts.csv
-  remainder_allowlist:
-    - ex1l5zzknpjw53ph95maw5tc0c79776wcfnrs067w
-    - ex1jpkj90qwdcx9dfrdaacce0kfvzdufp4rn6yfl7
 
 # Community pool seeding — optional; omit section or set to 0 to skip
 distribution:

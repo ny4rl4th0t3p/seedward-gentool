@@ -1,8 +1,11 @@
 # gentool
 
-> **Warning:** This tool is a work in progress. It has been tested and should produce correct output, but use it carefully on any network with real economic impact or staked value. Always validate the output genesis with your chain binary before launch and review the result manually.
+> **Warning:** This tool is a work in progress. It has been tested and should produce correct output, but use it
+> carefully on any network with real economic impact or staked value. Always validate the output genesis with your chain
+> binary before launch and review the result manually.
 >
-> This software is provided as-is under the [Apache 2.0 License](LICENSE) with no warranty. The authors accept no responsibility for loss of funds, incorrect genesis state, or chain failures resulting from its use.
+> This software is provided as-is under the [Apache 2.0 License](LICENSE) with no warranty. The authors accept no
+> responsibility for loss of funds, incorrect genesis state, or chain failures resulting from its use.
 
 A CLI for generating a production-ready genesis file for any Cosmos SDK chain.
 It takes a baseline genesis produced by `<chaind> init`, enriches it with
@@ -29,11 +32,15 @@ writes a fully-validated output genesis.
 The tool runs these steps in order:
 
 1. Applies governance and mint parameters from config.
-2. Injects standard module accounts (`bonded_tokens_pool`, `not_bonded_tokens_pool`, `gov`, `distribution`, `mint`, `fee_collector`) and any chain-specific extra modules.
-3. Reads all gentx files; injects validator accounts, staking validators, delegations, signing infos, and consensus validator set.
+2. Injects standard module accounts (`bonded_tokens_pool`, `not_bonded_tokens_pool`, `gov`, `distribution`, `mint`,
+   `fee_collector`) and any chain-specific extra modules.
+3. Reads all gentx files; injects validator accounts, staking validators, delegations, signing infos, and consensus
+   validator set.
 4. Adds non-vesting initial accounts from `accounts.csv`.
-5. Adds delayed vesting accounts (**claims**) and continuous vesting accounts (**grants**); optionally pre-delegates a portion of claim tokens to named validators.
-6. Writes final staking state (params, delegations, last validator powers), distribution state (including optional community pool seeding), denomination metadata, and slashing parameters.
+5. Adds delayed vesting accounts (**claims**) and continuous vesting accounts (**grants**); optionally pre-delegates a
+   portion of claim tokens to named validators.
+6. Writes final staking state (params, delegations, last validator powers), distribution state (including optional
+   community pool seeding), denomination metadata, and slashing parameters.
 7. Optionally seeds `authz` and `feegrant` module state from CSVs.
 8. Validates total supply against `accounts.total_supply` — fails fast if the final bank supply does not match.
 9. Clears `genutil.gen_txs` so the chain does not re-process gentxs on startup.
@@ -86,27 +93,32 @@ cosmos1abc...,5000000000
 cosmos1def...,1000000000
 ```
 
-**`claims.csv`** — delayed vesting accounts; third column is the validator moniker to pre-delegate to (optional). No header row.
+**`claims.csv`** — delayed vesting accounts; third column is the validator moniker to pre-delegate to (optional). No
+header row.
 
 ```
 cosmos1def...,1000000,validator-alpha
 cosmos1ghi...,1000000
 ```
 
-**`grants.csv`** — continuous vesting accounts (tokens unlock linearly between `grants.vesting.start_date` and `grants.vesting.end_date`). No header row. No delegation.
+**`grants.csv`** — continuous vesting accounts (tokens unlock linearly between `grants.vesting.start_date` and
+`grants.vesting.end_date`). No header row. No delegation.
 
 ```
 cosmos1jkl...,10000000000
 ```
 
-**`authz.csv`** — pre-seeds the `authz` module with `GenericAuthorization` grants. Fields: `granter, grantee, msg_type_url[, expiry_unix_timestamp]`. Expiry is optional; omit for no expiry. No header row.
+**`authz.csv`** — pre-seeds the `authz` module with `GenericAuthorization` grants. Fields:
+`granter, grantee, msg_type_url[, expiry_unix_timestamp]`. Expiry is optional; omit for no expiry. No header row.
 
 ```
 cosmos1granter...,cosmos1grantee...,/cosmos.bank.v1beta1.MsgSend,1900000000
 cosmos1granter...,cosmos1grantee...,/cosmos.staking.v1beta1.MsgDelegate
 ```
 
-**`feegrant.csv`** — pre-seeds the `feegrant` module with `BasicAllowance` grants. Fields: `granter, grantee, spend_limit_amount[, expiry_unix_timestamp]`. Set `spend_limit_amount` to `0` for no spend limit. Expiry is optional. No header row.
+**`feegrant.csv`** — pre-seeds the `feegrant` module with `BasicAllowance` grants. Fields:
+`granter, grantee, spend_limit_amount[, expiry_unix_timestamp]`. Set `spend_limit_amount` to `0` for no spend limit.
+Expiry is optional. No header row.
 
 ```
 cosmos1granter...,cosmos1grantee...,5000000,1900000000
@@ -114,6 +126,7 @@ cosmos1granter...,cosmos1grantee...,0
 ```
 
 **CSV rules:**
+
 - Amounts are in the base denomination (e.g. `uatom`). No suffix.
 - Module addresses are automatically filtered from all three files.
 - Accounts with amount `0` in `accounts.csv` are skipped.
@@ -148,124 +161,125 @@ All fields are optional unless marked **required**.
 
 ### `chain`
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `chain.address_prefix` | string | **yes** | Bech32 HRP (e.g. `cosmos`). Drives all address derivation. |
-| `chain.id` | string | **yes** | Chain ID written to genesis metadata. |
-| `chain.initial_height` | int | no | Initial block height (default `1`). |
-| `chain.max_validators` | int | no | Staking `max_validators` param. |
-| `chain.unbonding_time_seconds` | int | no | Staking `unbonding_time` in seconds. |
-| `chain.min_commission_rate` | decimal string | no | Staking `min_commission_rate` (e.g. `"0.03"`). |
-| `chain.historical_entries` | int | no | Staking `historical_entries` param. |
-| `chain.max_entries` | int | no | Staking `max_entries` param. |
-| `chain.blocks_per_year` | int | no | Mint `blocks_per_year` param. |
-| `chain.inflation_rate_change` | decimal string | no | Mint `inflation_rate_change`. |
-| `chain.inflation_max` | decimal string | no | Mint `inflation_max`. |
-| `chain.inflation_min` | decimal string | no | Mint `inflation_min`. |
-| `chain.goal_bonded` | decimal string | no | Mint `goal_bonded`. |
+| Key                            | Type           | Required | Description                                                |
+|--------------------------------|----------------|----------|------------------------------------------------------------|
+| `chain.address_prefix`         | string         | **yes**  | Bech32 HRP (e.g. `cosmos`). Drives all address derivation. |
+| `chain.id`                     | string         | **yes**  | Chain ID written to genesis metadata.                      |
+| `chain.initial_height`         | int            | no       | Initial block height (default `1`).                        |
+| `chain.max_validators`         | int            | no       | Staking `max_validators` param.                            |
+| `chain.unbonding_time_seconds` | int            | no       | Staking `unbonding_time` in seconds.                       |
+| `chain.min_commission_rate`    | decimal string | no       | Staking `min_commission_rate` (e.g. `"0.03"`).             |
+| `chain.historical_entries`     | int            | no       | Staking `historical_entries` param.                        |
+| `chain.max_entries`            | int            | no       | Staking `max_entries` param.                               |
+| `chain.blocks_per_year`        | int            | no       | Mint `blocks_per_year` param.                              |
+| `chain.inflation_rate_change`  | decimal string | no       | Mint `inflation_rate_change`.                              |
+| `chain.inflation_max`          | decimal string | no       | Mint `inflation_max`.                                      |
+| `chain.inflation_min`          | decimal string | no       | Mint `inflation_min`.                                      |
+| `chain.goal_bonded`            | decimal string | no       | Mint `goal_bonded`.                                        |
 
 ### `app`
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `app.genesis_time` | int (unix) | **yes** | Genesis time; overrides the baseline genesis file value. |
-| `app.name` | string | no | Chain binary name written to genesis metadata. |
-| `app.version` | string | no | App version written to genesis metadata. |
+| Key                | Type       | Required | Description                                              |
+|--------------------|------------|----------|----------------------------------------------------------|
+| `app.genesis_time` | int (unix) | **yes**  | Genesis time; overrides the baseline genesis file value. |
+| `app.name`         | string     | no       | Chain binary name written to genesis metadata.           |
+| `app.version`      | string     | no       | App version written to genesis metadata.                 |
 
 ### Top-level
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `default_bond_denom` | string | **yes** | Base staking denomination (e.g. `uatom`). Used throughout for coin parsing. |
+| Key                  | Type   | Required | Description                                                                 |
+|----------------------|--------|----------|-----------------------------------------------------------------------------|
+| `default_bond_denom` | string | **yes**  | Base staking denomination (e.g. `uatom`). Used throughout for coin parsing. |
 
 ### `slashing`
 
 All fields fall back to the Cosmos SDK default if omitted.
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `slashing.signed_blocks_window` | int | Window length for liveness tracking. |
-| `slashing.min_signed_per_window` | decimal string | Minimum fraction of blocks that must be signed. |
-| `slashing.downtime_jail_duration_seconds` | int | Jail duration for downtime in seconds. |
-| `slashing.slash_fraction_double_sign` | decimal string | Slash fraction for double-sign (e.g. `"0.05"`). |
-| `slashing.slash_fraction_downtime` | decimal string | Slash fraction for downtime (e.g. `"0.0001"`). |
+| Key                                       | Type           | Description                                     |
+|-------------------------------------------|----------------|-------------------------------------------------|
+| `slashing.signed_blocks_window`           | int            | Window length for liveness tracking.            |
+| `slashing.min_signed_per_window`          | decimal string | Minimum fraction of blocks that must be signed. |
+| `slashing.downtime_jail_duration_seconds` | int            | Jail duration for downtime in seconds.          |
+| `slashing.slash_fraction_double_sign`     | decimal string | Slash fraction for double-sign (e.g. `"0.05"`). |
+| `slashing.slash_fraction_downtime`        | decimal string | Slash fraction for downtime (e.g. `"0.0001"`).  |
 
 ### `gov`
 
 All fields fall back to the Cosmos SDK default if omitted.
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `gov.min_deposit_amount` | int | Minimum deposit amount in `default_bond_denom`. |
-| `gov.voting_period` | Go duration string | Standard voting period (e.g. `"432000s"`, `"72h"`). |
-| `gov.expedited_min_deposit_amount` | int | Minimum deposit for expedited proposals. |
-| `gov.expedited_voting_period` | Go duration string | Expedited voting period. |
+| Key                                | Type               | Description                                         |
+|------------------------------------|--------------------|-----------------------------------------------------|
+| `gov.min_deposit_amount`           | int                | Minimum deposit amount in `default_bond_denom`.     |
+| `gov.voting_period`                | Go duration string | Standard voting period (e.g. `"432000s"`, `"72h"`). |
+| `gov.expedited_min_deposit_amount` | int                | Minimum deposit for expedited proposals.            |
+| `gov.expedited_voting_period`      | Go duration string | Expedited voting period.                            |
 
 ### `denom`
 
-Omit this entire section to preserve denom metadata from the baseline genesis. Setting `denom.base` activates the section and overwrites all existing denom metadata.
+Omit this entire section to preserve denom metadata from the baseline genesis. Setting `denom.base` activates the
+section and overwrites all existing denom metadata.
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `denom.base` | string | Base denom (e.g. `uatom`). |
-| `denom.display` | string | Display denom (e.g. `ATOM`). |
-| `denom.symbol` | string | Ticker symbol. |
-| `denom.description` | string | Human-readable description. |
-| `denom.exponent` | int | Decimal exponent between base and display (e.g. `6`). |
-| `denom.aliases` | list of strings | Base denom aliases (e.g. `[microatom]`). |
+| Key                 | Type            | Description                                           |
+|---------------------|-----------------|-------------------------------------------------------|
+| `denom.base`        | string          | Base denom (e.g. `uatom`).                            |
+| `denom.display`     | string          | Display denom (e.g. `ATOM`).                          |
+| `denom.symbol`      | string          | Ticker symbol.                                        |
+| `denom.description` | string          | Human-readable description.                           |
+| `denom.exponent`    | int             | Decimal exponent between base and display (e.g. `6`). |
+| `denom.aliases`     | list of strings | Base denom aliases (e.g. `[microatom]`).              |
 
 ### `accounts`
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `accounts.file_name` | string | **yes** | Path to `accounts.csv`. |
-| `accounts.total_supply` | int | **yes** | True final on-chain supply in base denom. Must equal the sum of every token that will exist at genesis (see [Supply validation](#supply-validation)). Validated at runtime after all accounts are added; the tool exits with an error on mismatch. |
-| `accounts.non_staked_portion` | int | no | Amount in base denom kept liquid per delegating claim. Default `100000`. See [Vesting account types](#vesting-account-types). |
+| Key                          | Type   | Required | Description                                                                                                                                                                                                                                                                              |
+|------------------------------|--------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `accounts.file_name`         | string | **yes**  | Path to `accounts.csv`.                                                                                                                                                                                                                                                                  |
+| `accounts.total_supply`      | int    | **yes**  | True final on-chain supply in base denom. Must equal the sum of every token that will exist at genesis (see [Supply validation](#supply-validation)). Validated at runtime after all accounts are added; the tool exits with an error on mismatch.                                       |
+| `accounts.non_staked_amount` | int    | no       | Absolute amount in base denom (not a percentage) kept liquid on each delegating account, so it retains a spendable balance for gas. Default `100000`. A delegating claim's amount must exceed this value or genesis creation fails. See [Vesting account types](#vesting-account-types). |
 
 ### `claims`
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `claims.file_name` | string | **yes** | Path to `claims.csv`. |
-| `claims.vesting.end_date` | int (unix) | **yes** | Unix timestamp at which all claim tokens fully vest. |
+| Key                       | Type       | Required | Description                                          |
+|---------------------------|------------|----------|------------------------------------------------------|
+| `claims.file_name`        | string     | **yes**  | Path to `claims.csv`.                                |
+| `claims.vesting.end_date` | int (unix) | **yes**  | Unix timestamp at which all claim tokens fully vest. |
 
 ### `grants`
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `grants.file_name` | string | **yes** | Path to `grants.csv`. |
-| `grants.vesting.start_date` | int (unix) | **yes** | Unix timestamp at which linear vesting begins. |
-| `grants.vesting.end_date` | int (unix) | **yes** | Unix timestamp at which vesting completes. |
+| Key                         | Type       | Required | Description                                    |
+|-----------------------------|------------|----------|------------------------------------------------|
+| `grants.file_name`          | string     | **yes**  | Path to `grants.csv`.                          |
+| `grants.vesting.start_date` | int (unix) | **yes**  | Unix timestamp at which linear vesting begins. |
+| `grants.vesting.end_date`   | int (unix) | **yes**  | Unix timestamp at which vesting completes.     |
 
 ### `distribution`
 
 All fields are optional. Omit the entire section to leave distribution state at its SDK defaults.
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `distribution.community_pool_amount` | int | Amount in `default_bond_denom` to seed into `FeePool.CommunityPool` at genesis. Added **after** supply validation (same convention as claims/grants). Default `0` (no seeding). |
+| Key                                  | Type | Description                                                                                                                                                                     |
+|--------------------------------------|------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `distribution.community_pool_amount` | int  | Amount in `default_bond_denom` to seed into `FeePool.CommunityPool` at genesis. Added **after** supply validation (same convention as claims/grants). Default `0` (no seeding). |
 
 ### `authz`
 
 Optional. Omit the entire section to skip authz state entirely.
 
-| Key | Type | Description |
-|-----|------|-------------|
+| Key               | Type   | Description                                                           |
+|-------------------|--------|-----------------------------------------------------------------------|
 | `authz.file_name` | string | Path to `authz.csv`. Each row seeds one `GenericAuthorization` grant. |
 
 ### `feegrant`
 
 Optional. Omit the entire section to skip feegrant state entirely.
 
-| Key | Type | Description |
-|-----|------|-------------|
+| Key                  | Type   | Description                                                        |
+|----------------------|--------|--------------------------------------------------------------------|
 | `feegrant.file_name` | string | Path to `feegrant.csv`. Each row seeds one `BasicAllowance` grant. |
 
 ### `validators`
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `validators.gentx_dir` | string | **yes** | Path to directory containing gentx JSON files. |
+| Key                    | Type   | Required | Description                                    |
+|------------------------|--------|----------|------------------------------------------------|
+| `validators.gentx_dir` | string | **yes**  | Path to directory containing gentx JSON files. |
 
 ### `modules`
 
@@ -275,16 +289,16 @@ Optional. Injects chain-specific module accounts beyond the standard SDK set.
 modules:
   extra:
     - name: mymodule
-      permissions: [minter, burner]
+      permissions: [ minter, burner ]
 ```
 
 Valid permissions: `minter`, `burner`, `staking`.
 
 ### `genesis`
 
-| Key | Type | Required | Description |
-|-----|------|----------|-------------|
-| `genesis.output` | string | **yes** | Output path for the final genesis file. |
+| Key              | Type   | Required | Description                             |
+|------------------|--------|----------|-----------------------------------------|
+| `genesis.output` | string | **yes**  | Output path for the final genesis file. |
 
 ---
 
@@ -292,19 +306,20 @@ Valid permissions: `minter`, `burner`, `staking`.
 
 **Claims** are delayed vesting accounts: all tokens vest at once at `claims.vesting.end_date`.
 
-**Grants** are continuous vesting accounts: tokens unlock linearly from `grants.vesting.start_date` to `grants.vesting.end_date`.
+**Grants** are continuous vesting accounts: tokens unlock linearly from `grants.vesting.start_date` to
+`grants.vesting.end_date`.
 
-| | Claims | Grants |
-|-|--------|--------|
-| CSV | `claims.csv` | `grants.csv` |
-| Vesting type | Delayed | Continuous |
-| Pre-delegation | Optional (third CSV column) | Never |
-| Included in `accounts.total_supply` | Yes | Yes |
+|                                     | Claims                      | Grants       |
+|-------------------------------------|-----------------------------|--------------|
+| CSV                                 | `claims.csv`                | `grants.csv` |
+| Vesting type                        | Delayed                     | Continuous   |
+| Pre-delegation                      | Optional (third CSV column) | Never        |
+| Included in `accounts.total_supply` | Yes                         | Yes          |
 
 **How claim delegation works:** when a claim row specifies a validator moniker, gentool:
 
-1. Moves all tokens except `accounts.non_staked_portion` into the `bonded_tokens_pool` balance.
-2. Keeps `non_staked_portion` liquid in the account's own balance.
+1. Moves all tokens except `accounts.non_staked_amount` into the `bonded_tokens_pool` balance.
+2. Keeps `non_staked_amount` liquid in the account's own balance.
 3. Records a `stakingtypes.Delegation` entry so the chain tracks delegated shares from block 1.
 4. Adds those shares to the validator's token weight and consensus voting power.
 
@@ -312,7 +327,8 @@ Valid permissions: `minter`, `burner`, `staking`.
 
 ## Supply validation
 
-`accounts.total_supply` is validated at the **end** of the pipeline, after all accounts (module accounts, initial accounts, claims, grants, and the community pool) have been written. The bank supply at that point must equal exactly:
+`accounts.total_supply` is validated at the **end** of the pipeline, after all accounts (module accounts, initial
+accounts, claims, grants, and the community pool) have been written. The bank supply at that point must equal exactly:
 
 ```
 accounts.total_supply
@@ -331,16 +347,43 @@ The tool exits with an error if the bank supply does not match this value.
 
 The following standard module accounts are always created automatically:
 
-| Module | Initial balance | Permissions |
-|--------|----------------|-------------|
-| `bonded_tokens_pool` | Sum of all gentx self-delegation amounts | `burner`, `staking` |
-| `not_bonded_tokens_pool` | 0 | `burner`, `staking` |
-| `gov` | 0 | `burner` |
-| `distribution` | `distribution.community_pool_amount` (default 0) | — |
-| `mint` | 0 | `minter` |
-| `fee_collector` | 0 | — |
+| Module                   | Initial balance                                  | Permissions         |
+|--------------------------|--------------------------------------------------|---------------------|
+| `bonded_tokens_pool`     | Sum of all gentx self-delegation amounts         | `burner`, `staking` |
+| `not_bonded_tokens_pool` | 0                                                | `burner`, `staking` |
+| `gov`                    | 0                                                | `burner`            |
+| `distribution`           | `distribution.community_pool_amount` (default 0) | —                   |
+| `mint`                   | 0                                                | `minter`            |
+| `fee_collector`          | 0                                                | —                   |
 
 Extra modules declared under `modules.extra` start with zero balance and whatever permissions you specify.
+
+---
+
+## Memory & resource limits
+
+gentool builds the entire genesis **in memory** — it reads the baseline genesis into a byte
+buffer and holds the working state (auth accounts, bank balances, staking delegations) until the
+final writing. Peak RAM therefore scales with the number of accounts/claims/grants/validators, and a
+huge genesis can be multi-gigabyte.
+
+gentool does **not** try to predict or cap its own memory — bound it where it's actually enforced,
+at the container/cgroup level:
+
+```bash
+docker run --memory=4g -e GOMEMLIMIT=3600MiB gentool genesis create ...
+# k8s: resources.limits.memory: 4Gi  +  env GOMEMLIMIT=3600MiB
+```
+
+- The **container memory limit** is the hard cap — exceed it and the kernel OOM-kills the process.
+- [`GOMEMLIMIT`](https://pkg.go.dev/runtime#hdr-Environment_Variables) (a Go runtime env var, read
+  automatically — no flag needed) is a **soft** target: as the heap approaches it, the GC runs more
+  aggressively to stay under the hard cap instead of tripping it. Set it to ~**90%** of the container
+  limit, leaving headroom for non-heap memory. It's pure Go, so `GOMEMLIMIT` governs essentially all
+  of its memory.
+
+If a genesis genuinely needs more than the limit, expect an OOM kill (or, with `GOMEMLIMIT` set, heavy
+GC thrashing first) — give the job a bigger box.
 
 ---
 

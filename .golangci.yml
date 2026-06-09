@@ -135,7 +135,7 @@ linters:
           - goconst
           - gocyclo
 
-      - linters: [gosec]
+      - linters: [ gosec ]
         text: "(G704: SSRF via taint analysis|G703: Path traversal via taint analysis)"
 
 formatters:
