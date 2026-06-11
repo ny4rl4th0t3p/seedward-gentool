@@ -1,0 +1,16 @@
+gentool builds a genesis file for any Cosmos SDK chain from a baseline genesis and CSV-defined accounts, claims, and grants.
+
+Usage:
+  gentool [command]
+
+Available Commands:
+  completion  Generate the autocompletion script for the specified shell
+  create      Create a genesis file from a baseline genesis and CSV inputs
+  help        Help about any command
+
+Flags:
+      --config string   config file (default is ./.gentool.yaml)
+  -h, --help            help for gentool
+  -v, --version         version for gentool
+
+Use "gentool [command] --help" for more information about a command.

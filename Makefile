@@ -10,7 +10,7 @@ GO              := go
 CGO_ENABLED     ?= 0
 GOFLAGS         := CGO_ENABLED=$(CGO_ENABLED)
 VERSION         := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-BUILD_FLAGS     := -trimpath -ldflags="-s -w -X 'github.com/ny4rl4th0t3p/cosmos-genesis-tool/cmd/gentool/cmd.Version=$(VERSION)'"
+BUILD_FLAGS     := -trimpath -ldflags="-s -w -X 'github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/cli.Version=$(VERSION)'"
 
 # Packages used by the various test targets (all Go packages: internal, cmd, pkg)
 UNIT_PKGS       := ./...
