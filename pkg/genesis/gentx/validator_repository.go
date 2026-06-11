@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/validator"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/validator"
 )
 
 // Extend the structure to match full JSON schema of the file

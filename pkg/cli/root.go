@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Version is set at build time via -ldflags="-X 'github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/cli.Version=<tag>'".
+// Version is set at build time via -ldflags="-X 'github.com/ny4rl4th0t3p/seedward-gentool/pkg/cli.Version=<tag>'".
 var Version = "dev"
 
 // NewRootCmd returns gentool's full root command, freshly constructed on each call.

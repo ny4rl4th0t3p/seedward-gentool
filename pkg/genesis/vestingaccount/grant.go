@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/encoding"
 )
 
 var ErrInvalidGrant = errors.New("invalid grant")

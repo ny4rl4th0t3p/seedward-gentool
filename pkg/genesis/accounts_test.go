@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/validator"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/vestingaccount"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/encoding"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/validator"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/vestingaccount"
 )
 
 // testValidator creates a deterministic Validator for test index i.

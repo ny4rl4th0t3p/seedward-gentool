@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/cli"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/cli"
 )
 
 func main() {

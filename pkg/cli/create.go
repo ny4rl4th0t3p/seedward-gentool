@@ -9,10 +9,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/csv"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/gentx"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/csv"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/encoding"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/gentx"
 )
 
 const (
