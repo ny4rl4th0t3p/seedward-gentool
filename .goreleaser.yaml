@@ -5,7 +5,7 @@ builds:
     main: ./cmd/gentool
     binary: gentool
     ldflags:
-      - -X github.com/ny4rl4th0t3p/cosmos-genesis-tool/cmd/gentool/cmd.Version={{ .Version }}
+      - -X github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/cli.Version={{ .Version }}
     env:
       - CGO_ENABLED=0
     goos:

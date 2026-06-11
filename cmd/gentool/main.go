@@ -1,7 +1,13 @@
 package main
 
-import "github.com/ny4rl4th0t3p/cosmos-genesis-tool/cmd/gentool/cmd"
+import (
+	"os"
+
+	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/cli"
+)
 
 func main() {
-	cmd.Execute()
+	if err := cli.NewRootCmd().Execute(); err != nil {
+		os.Exit(1)
+	}
 }
