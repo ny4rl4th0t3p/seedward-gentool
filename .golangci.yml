@@ -149,4 +149,4 @@ formatters:
           replacement: 'any'
     goimports:
       local-prefixes:
-        - github.com/ny4rl4th0t3p/cosmos-genesis-tool
+        - github.com/ny4rl4th0t3p/seedward-gentool

@@ -1,4 +1,4 @@
-module github.com/ny4rl4th0t3p/cosmos-genesis-tool
+module github.com/ny4rl4th0t3p/seedward-gentool
 
 go 1.25
 

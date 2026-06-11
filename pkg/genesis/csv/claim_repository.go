@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/vestingaccount"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/encoding"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/vestingaccount"
 )
 
 const expectedPreAllocationSize = 500000

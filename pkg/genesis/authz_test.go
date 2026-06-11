@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	genesisauthz "github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/authz"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
+	genesisauthz "github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/authz"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/encoding"
 )
 
 type stubAuthzGrantRepo struct {

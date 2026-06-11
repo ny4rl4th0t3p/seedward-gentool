@@ -3,12 +3,12 @@ package genesis
 import (
 	"context"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/accounts"
-	genesisauthz "github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/authz"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
-	genesisfeegrant "github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/feegrant"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/validator"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/vestingaccount"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/accounts"
+	genesisauthz "github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/authz"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/encoding"
+	genesisfeegrant "github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/feegrant"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/validator"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/vestingaccount"
 )
 
 type ClaimRepository interface {

@@ -1,11 +1,11 @@
-project_name: cosmos-genesis-tool
+project_name: seedward-gentool
 
 builds:
   - id: gentool
     main: ./cmd/gentool
     binary: gentool
     ldflags:
-      - -X github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/cli.Version={{ .Version }}
+      - -X github.com/ny4rl4th0t3p/seedward-gentool/pkg/cli.Version={{ .Version }}
     env:
       - CGO_ENABLED=0
     goos:
@@ -54,4 +54,4 @@ changelog:
 release:
   github:
     owner: ny4rl4th0t3p
-    name: cosmos-genesis-tool
+    name: seedward-gentool

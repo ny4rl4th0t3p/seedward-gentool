@@ -19,8 +19,8 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/encoding"
-	"github.com/ny4rl4th0t3p/cosmos-genesis-tool/pkg/genesis/vestingaccount"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/encoding"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/vestingaccount"
 )
 
 // parseBaseGenesis parses a baseline genesis document (raw JSON from '<chaind>
