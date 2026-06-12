@@ -128,7 +128,7 @@ cosmos1granter...,cosmos1grantee...,0
 **CSV rules:**
 
 - Amounts are in the base denomination (e.g. `uatom`). No suffix.
-- Module addresses are automatically filtered from all three files.
+- Module addresses are automatically filtered from all five files.
 - Accounts with amount `0` in `accounts.csv` are skipped.
 - No header row in any file.
 - Leading/trailing whitespace is stripped from each field.
@@ -147,10 +147,11 @@ gentool create \
   --config gentool.yaml
 ```
 
-The output genesis is written to `genesis.output` from your config. Validate with:
+The output genesis is written to the `genesis.output` path from your config. Validate it with your
+chain binary:
 
 ```sh
-gaiad validate-genesis $TMPDIR/gentool/genesis.json
+gaiad validate-genesis /path/to/output/genesis.json
 ```
 
 ---
@@ -360,6 +361,48 @@ Extra modules declared under `modules.extra` start with zero balance and whateve
 
 ---
 
+## Embedding as a library
+
+The genesis engine is importable: `pkg/genesis` is standalone and side-effect-free, and `pkg/cli`
+exposes the commands for mounting into a host CLI.
+
+### Mount the CLI commands
+
+```go
+import "github.com/ny4rl4th0t3p/seedward-gentool/pkg/cli"
+
+for _, cmd := range cli.NewGenesisCommands() {
+    rootCmd.AddCommand(cmd)
+}
+```
+
+The commands are self-contained: every flag they read (including `--config`) is declared on the
+commands themselves, and config state lives in a per-command viper instance — never the global
+singleton a host CLI may be using.
+
+> **Caveat:** the commands own a `--config` flag. The host CLI must not declare a persistent flag
+> of the same name — cobra resolves the collision silently in favor of these commands, so the
+> host's flag becomes unreachable (and never populated) for any invocation through this subtree.
+
+### Call the engine directly
+
+```go
+import "github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis"
+
+appGenesis, err := genesis.Build(ctx, baselineGenesisBytes, cfg, repos)
+if err != nil {
+    return err
+}
+err = appGenesis.SaveAs(outputPath)
+```
+
+`Build` takes the raw baseline genesis bytes, a `genesis.ChainConfig`, and a `genesis.Repositories`
+bundle. CSV- and gentx-backed repository implementations live in `pkg/genesis/csv` and
+`pkg/genesis/gentx`, or you can supply your own. The `AuthzGrants` and `FeeAllowances` repositories
+are optional — leave them `nil` to skip those modules.
+
+---
+
 ## Memory & resource limits
 
 gentool builds the entire genesis **in memory** — it reads the baseline genesis into a byte
@@ -371,7 +414,7 @@ gentool does **not** try to predict or cap its own memory — bound it where it'
 at the container/cgroup level:
 
 ```bash
-docker run --memory=4g -e GOMEMLIMIT=3600MiB gentool genesis create ...
+docker run --memory=4g -e GOMEMLIMIT=3600MiB gentool create ...
 # k8s: resources.limits.memory: 4Gi  +  env GOMEMLIMIT=3600MiB
 ```
 
@@ -409,10 +452,12 @@ make test-race      # unit tests with race detector
 make test-cover     # coverage report (opens browser)
 make test-integration  # Docker integration test (full scenario + gaiad validate-genesis)
 make test-smoke     # Docker smoke test (2-validator chain boots + 35 on-chain assertions: params, supply, vesting accounts, delegations, denom metadata)
-make check          # fmt + vet + tidy + unit tests (CI entry point)
+make check          # fmt + vet + tidy + lint + unit tests (CI entry point)
 make fmt            # format source
 make vet            # go vet
 make tidy           # go mod tidy
+make lint           # golangci-lint (report only)
+make lint-fix       # golangci-lint with auto-fixes
 ```
 
 ---
@@ -420,10 +465,12 @@ make tidy           # go mod tidy
 ## Architecture
 
 ```
-cmd/gentool/          CLI entry point (Cobra)
-internal/
-  app/                Genesis construction logic
-    app_state.go      SetupAppState orchestrator
+cmd/gentool/          Standalone CLI entry point
+pkg/
+  cli/                Cobra commands + embedding API (NewGenesisCommands)
+  genesis/            Importable, side-effect-free genesis engine
+    build.go          Build orchestrator (library entry point)
+    config.go         ChainConfig
     accounts.go       Validator / claim / grant / initial account injection
     staking.go        Staking module params + delegations
     distribution.go   Distribution module state
@@ -434,10 +481,14 @@ internal/
     authz.go          authz genesis grants
     feegrant.go       feegrant genesis allowances
     consensus.go      CometBFT consensus validator set
-    utils.go          Shared helpers (LoadGenesis, updateModuleState, vesting account builders)
-  domain/             Pure domain types (Validator, Claim, Grant, InitialAccount, AuthzGrant, FeeAllowance)
-  encoding/           Chain-agnostic EncodingConfig
-  repository/         CSV + gentx readers
+    accounts/         Account domain types
+    authz/            AuthzGrant domain type
+    feegrant/         FeeAllowance domain type
+    validator/        Validator domain type
+    vestingaccount/   Claim / Grant vesting account builders
+    csv/              CSV repositories (accounts, claims, grants, authz, feegrant)
+    gentx/            Gentx reader (validator repository)
+    encoding/         Chain-agnostic EncodingConfig + module address derivation
 tests/
   integration/        Docker Compose: full genesis creation + gaiad validate-genesis
   smoke/              Docker Compose: 2-validator chain boots + 35 on-chain assertions (params, vesting accounts, supply, delegations, denom metadata)

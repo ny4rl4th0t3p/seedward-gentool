@@ -8,7 +8,7 @@ type ExtraModule struct {
 }
 
 // ChainConfig holds every configuration value the genesis-construction logic
-// needs. It is built once from viper in cmd/gentool and passed into internal/app
+// needs. It is built once from viper in pkg/cli and passed into pkg/genesis
 // so the package itself never reads global config. Zero/empty fields mean
 // "keep the baseline genesis default" unless documented otherwise.
 type ChainConfig struct {
