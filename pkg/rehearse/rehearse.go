@@ -13,6 +13,7 @@ package rehearse
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis"
@@ -141,16 +142,28 @@ func (e *Engine) Run(ctx context.Context, in Input) (*Result, error) {
 	}
 	res.Steps = append(res.Steps, Step{Name: "verify_binary", Status: StepPass})
 
-	// 2. buildCheck: materialize input → temp workdir (allocation CSVs + gentx JSONs),
-	//    `<chaind> init` a baseline, then genesis.Build(real gentxs + allocations). Failure =
-	//    FAIL: build. Reuses csv.NewCSV*Repository + gentx.NewValidatorRepository.   (build.go)
+	// 2. Build check on the REAL inputs. accounts is required (gentool needs ≥1 account, the
+	//    supply anchor); a materialize failure (temp dir / `<chaind> init`) is infra → ERROR,
+	//    while a build failure (the approved set doesn't assemble) is a real verdict → FAIL.
+	if _, ok := in.Allocations[AllocationAccounts]; !ok {
+		return failResult(res, OutcomeFail, "build", fmt.Errorf("missing required allocation: accounts")), nil
+	}
+	prep, err := materialize(ctx, in)
+	if err != nil {
+		return failResult(res, OutcomeError, "materialize", err), nil
+	}
+	defer func() { _ = os.RemoveAll(prep.dir) }()
+	if err := buildCheck(ctx, in, prep); err != nil {
+		return failResult(res, OutcomeFail, "build", err), nil
+	}
+	res.Steps = append(res.Steps, Step{Name: "build", Status: StepPass})
+
 	// 3. prepareBoot: generate e.validators substitute validators (fresh keys) and Build a
 	//    bootable doctored genesis — real allocations, substitute gentxs.        (substitute.go)
 	// 4. e.runtime.Boot(...) → poll height ≥ 1 within e.bootWait; ALWAYS Teardown.
 	//                                                                       (runtime_process.go)
 	// 5. assertAll: input-derived assertion suite vs the RPC endpoint, one Step each — full
 	//    parity with smoke.sh's catalog (D-j).                                      (assert.go)
-	_ = ctx
 	return res, nil
 }
 
