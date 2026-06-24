@@ -11,14 +11,17 @@ import (
 
 // Repositories bundles all data sources required to construct genesis.
 // CSV implementations are provided in pkg/genesis/csv (gentx for validators).
-// AuthzGrants and FeeAllowances may be nil to skip those modules.
+//
+// InitialAccounts and Validators are required. Claims, Grants, AuthzGrants, and
+// FeeAllowances are optional: a nil repository is treated as "no records" for that
+// module, never a panic.
 type Repositories struct {
-	Claims          ClaimRepository
-	Grants          GrantRepository
-	InitialAccounts InitialAccountsRepository
-	Validators      ValidatorRepository
-	AuthzGrants     AuthzGrantRepository   // nil → skip authz genesis
-	FeeAllowances   FeeAllowanceRepository // nil → skip feegrant genesis
+	InitialAccounts InitialAccountsRepository // required (≥1 account)
+	Validators      ValidatorRepository       // required
+	Claims          ClaimRepository           // nil → no claims
+	Grants          GrantRepository           // nil → no grants
+	AuthzGrants     AuthzGrantRepository      // nil → skip authz genesis
+	FeeAllowances   FeeAllowanceRepository    // nil → skip feegrant genesis
 }
 
 // sdkConfigOnce guards the process-global sdk.Config seal so Build can be called
