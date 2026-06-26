@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/config"
 	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis"
 	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/csv"
 	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/encoding"
@@ -54,7 +55,7 @@ func newCreateCmd() *cobra.Command {
 				return fmt.Errorf("--input-genesis is required: path to a baseline genesis file from '<chaind> init'")
 			}
 
-			inputs, err := inputsFromViper(v)
+			inputs, err := config.FromViper(v)
 			if err != nil {
 				return err
 			}
@@ -113,73 +114,6 @@ func initConfig(v *viper.Viper, cfgFile string) {
 
 	if err := v.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", v.ConfigFileUsed())
-	}
-}
-
-// buildChainConfig assembles the genesis.ChainConfig from viper. This is the single
-// place viper is read for genesis construction; the genesis package takes the struct.
-func buildChainConfig(v *viper.Viper, hrp string) genesis.ChainConfig {
-	type extraModuleConfig struct {
-		Name        string   `mapstructure:"name"`
-		Permissions []string `mapstructure:"permissions"`
-	}
-	var raw []extraModuleConfig
-	_ = v.UnmarshalKey("modules.extra", &raw)
-	extra := make([]genesis.ExtraModule, 0, len(raw))
-	for _, em := range raw {
-		extra = append(extra, genesis.ExtraModule{Name: em.Name, Permissions: em.Permissions})
-	}
-
-	return genesis.ChainConfig{
-		ChainID:       v.GetString("chain.id"),
-		AppName:       v.GetString("app.name"),
-		AppVersion:    v.GetString("app.version"),
-		GenesisTime:   v.GetInt64("app.genesis_time"),
-		InitialHeight: v.GetInt64("chain.initial_height"),
-
-		AddressPrefix: hrp,
-		BondDenom:     v.GetString("default_bond_denom"),
-
-		TotalSupply:     v.GetInt64("accounts.total_supply"),
-		NonStakedAmount: v.GetInt64("accounts.non_staked_amount"),
-
-		ClaimsVestingEnd:   v.GetInt64("claims.vesting.end_date"),
-		GrantsVestingStart: v.GetInt64("grants.vesting.start_date"),
-		GrantsVestingEnd:   v.GetInt64("grants.vesting.end_date"),
-
-		DenomBase:        v.GetString("denom.base"),
-		DenomDisplay:     v.GetString("denom.display"),
-		DenomSymbol:      v.GetString("denom.symbol"),
-		DenomDescription: v.GetString("denom.description"),
-		DenomExponent:    v.GetUint32("denom.exponent"),
-		DenomAliases:     v.GetStringSlice("denom.aliases"),
-
-		ExtraModules: extra,
-
-		UnbondingTimeSeconds: v.GetInt64("chain.unbonding_time_seconds"),
-		MaxValidators:        v.GetUint32("chain.max_validators"),
-		MaxEntries:           v.GetUint32("chain.max_entries"),
-		HistoricalEntries:    v.GetUint32("chain.historical_entries"),
-		MinCommissionRate:    v.GetString("chain.min_commission_rate"),
-
-		BlocksPerYear:       v.GetInt64("chain.blocks_per_year"),
-		InflationRateChange: v.GetString("chain.inflation_rate_change"),
-		InflationMax:        v.GetString("chain.inflation_max"),
-		InflationMin:        v.GetString("chain.inflation_min"),
-		GoalBonded:          v.GetString("chain.goal_bonded"),
-
-		GovMinDepositAmount:          v.GetInt64("gov.min_deposit_amount"),
-		GovVotingPeriod:              v.GetString("gov.voting_period"),
-		GovExpeditedMinDepositAmount: v.GetInt64("gov.expedited_min_deposit_amount"),
-		GovExpeditedVotingPeriod:     v.GetString("gov.expedited_voting_period"),
-
-		SignedBlocksWindow:          v.GetInt64("slashing.signed_blocks_window"),
-		MinSignedPerWindow:          v.GetString("slashing.min_signed_per_window"),
-		DowntimeJailDurationSeconds: v.GetInt64("slashing.downtime_jail_duration_seconds"),
-		SlashFractionDoubleSign:     v.GetString("slashing.slash_fraction_double_sign"),
-		SlashFractionDowntime:       v.GetString("slashing.slash_fraction_downtime"),
-
-		CommunityPoolAmount: v.GetInt64("distribution.community_pool_amount"),
 	}
 }
 
