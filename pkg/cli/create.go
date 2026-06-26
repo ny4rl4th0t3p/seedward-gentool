@@ -54,11 +54,12 @@ func newCreateCmd() *cobra.Command {
 				return fmt.Errorf("--input-genesis is required: path to a baseline genesis file from '<chaind> init'")
 			}
 
-			hrp := v.GetString("chain.address_prefix")
-			if hrp == "" {
-				return fmt.Errorf("chain.address_prefix is required in config")
+			inputs, err := inputsFromViper(v)
+			if err != nil {
+				return err
 			}
-			cfg := buildChainConfig(v, hrp)
+			cfg := inputs.Chain
+			hrp := cfg.AddressPrefix
 
 			raw, err := os.ReadFile(inputGenesis)
 			if err != nil {
@@ -68,17 +69,17 @@ func newCreateCmd() *cobra.Command {
 			moduleAddresses := computeAllModuleAddresses(hrp, cfg.ExtraModules)
 
 			repos := genesis.Repositories{
-				Claims:          csv.NewCSVClaimRepository(v.GetString("claims.file_name"), moduleAddresses),
-				Grants:          csv.NewCSVGrantRepository(v.GetString("grants.file_name"), moduleAddresses),
-				InitialAccounts: csv.NewCSVInitialAccountsRepository(v.GetString("accounts.file_name"), moduleAddresses),
-				Validators:      gentx.NewValidatorRepository(v.GetString("validators.gentx_dir"), hrp),
+				Claims:          csv.NewCSVClaimRepository(inputs.Claims, moduleAddresses),
+				Grants:          csv.NewCSVGrantRepository(inputs.Grants, moduleAddresses),
+				InitialAccounts: csv.NewCSVInitialAccountsRepository(inputs.Accounts, moduleAddresses),
+				Validators:      gentx.NewValidatorRepository(inputs.GentxDir, hrp),
 			}
-			// authz/feegrant are optional: a nil repository signals "module not configured".
-			if v.IsSet("authz.file_name") {
-				repos.AuthzGrants = csv.NewCSVAuthzGrantRepository(v.GetString("authz.file_name"), moduleAddresses)
+			// authz/feegrant are optional: an unset path signals "module not configured".
+			if inputs.Authz != "" {
+				repos.AuthzGrants = csv.NewCSVAuthzGrantRepository(inputs.Authz, moduleAddresses)
 			}
-			if v.IsSet("feegrant.file_name") {
-				repos.FeeAllowances = csv.NewCSVFeeAllowanceRepository(v.GetString("feegrant.file_name"), moduleAddresses)
+			if inputs.Feegrant != "" {
+				repos.FeeAllowances = csv.NewCSVFeeAllowanceRepository(inputs.Feegrant, moduleAddresses)
 			}
 
 			appGenesis, err := genesis.Build(context.Background(), raw, cfg, repos)
