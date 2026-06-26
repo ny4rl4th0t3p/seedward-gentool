@@ -14,6 +14,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis"
@@ -76,15 +78,39 @@ type Step struct {
 	Detail string     // human detail (error text on failure)
 }
 
-// Result is the structured outcome of a run; the coordd daemon maps it onto the signed fact.
+// Result is the structured outcome of a run; the coordd daemon maps it onto the signed fact,
+// and Report renders it verbose.
 type Result struct {
 	Outcome    Outcome
 	FailedStep string // "" on PASS
 	Summary    string // one-line verdict
 	Steps      []Step
 	Validators int // substitute validators that booted
+
+	// Substitution records how the real validator set was collapsed onto the boot validators
+	// (nil until the boot genesis is prepared). Drives the verbose report's remap explanation.
+	Substitution *Substitution
+
+	// Err is the wrapped sentinel for a FAIL/ERROR run (nil on PASS). Not serialized — it is
+	// the controlled handle for callers to branch with errors.Is (e.g. ErrInfrastructure).
+	Err error
+
 	StartedAt  time.Time
 	FinishedAt time.Time
+}
+
+// SubstituteValidator is one throwaway validator the engine generated and booted.
+type SubstituteValidator struct {
+	Moniker        string
+	SelfDelegation int64
+}
+
+// Substitution records the collapse of the real validator set onto the boot validators:
+// the K substitutes that booted and, per real validator, which substitute its delegated
+// claims were remapped onto (so the report can say "delegations to X23 → rehearse-val-1").
+type Substitution struct {
+	Validators       []SubstituteValidator
+	RealToSubstitute map[string]string // real validator moniker → substitute moniker
 }
 
 // Runtime boots a prepared node set and exposes an RPC endpoint, then tears it down.
@@ -138,7 +164,7 @@ func (e *Engine) Run(ctx context.Context, in Input) (*Result, error) {
 	// 1. Verify the chain binary matches the input's sha256 (D-e). Missing/mismatch = ERROR
 	//    (an infra fault, not a verdict on the genesis).
 	if err := verifyBinary(in.BinaryPath, in.BinarySHA256); err != nil {
-		return failResult(res, OutcomeError, "verify_binary", err), nil
+		return failResult(res, OutcomeError, "verify_binary", fmt.Errorf("%w: %w", ErrBinaryVerification, err)), nil
 	}
 	res.Steps = append(res.Steps, Step{Name: "verify_binary", Status: StepPass})
 
@@ -146,21 +172,33 @@ func (e *Engine) Run(ctx context.Context, in Input) (*Result, error) {
 	//    supply anchor); a materialize failure (temp dir / `<chaind> init`) is infra → ERROR,
 	//    while a build failure (the approved set doesn't assemble) is a real verdict → FAIL.
 	if _, ok := in.Allocations[AllocationAccounts]; !ok {
-		return failResult(res, OutcomeFail, "build", fmt.Errorf("missing required allocation: accounts")), nil
+		return failResult(res, OutcomeFail, "build", fmt.Errorf("%w: accounts allocation is required", ErrInvalidInput)), nil
+	}
+	if len(in.Gentxs) == 0 {
+		return failResult(res, OutcomeFail, "build", fmt.Errorf("%w: at least one gentx is required", ErrInvalidInput)), nil
 	}
 	prep, err := materialize(ctx, in)
 	if err != nil {
-		return failResult(res, OutcomeError, "materialize", err), nil
+		return failResult(res, OutcomeError, "materialize", fmt.Errorf("%w: %w", ErrInfrastructure, err)), nil
 	}
 	defer func() { _ = os.RemoveAll(prep.dir) }()
 	if err := buildCheck(ctx, in, prep); err != nil {
-		return failResult(res, OutcomeFail, "build", err), nil
+		return failResult(res, OutcomeFail, "build", fmt.Errorf("%w: %w", ErrGenesisBuild, err)), nil
 	}
 	res.Steps = append(res.Steps, Step{Name: "build", Status: StepPass})
 
-	// 3. prepareBoot: generate e.validators substitute validators (fresh keys) and Build a
-	//    bootable doctored genesis — real allocations, substitute gentxs.        (substitute.go)
-	// 4. e.runtime.Boot(...) → poll height ≥ 1 within e.bootWait; ALWAYS Teardown.
+	// 3. Collapse the real validators into e.validators substitute validators (fresh keys,
+	//    self-delegation total preserved, delegated claims remapped) and stage the bootable
+	//    genesis into their node homes. Failures here (keygen/gentx/build) are infra → ERROR.
+	homes, sub, err := prepareBoot(ctx, in, prep, e.validators)
+	if err != nil {
+		return failResult(res, OutcomeError, "prepare_boot", fmt.Errorf("%w: %w", ErrInfrastructure, err)), nil
+	}
+	res.Substitution = sub
+	res.Validators = len(homes)
+	res.Steps = append(res.Steps, Step{Name: "prepare_boot", Status: StepPass})
+
+	// 4. e.runtime.Boot(homes) → poll height ≥ 1 within e.bootWait; ALWAYS Teardown.
 	//                                                                       (runtime_process.go)
 	// 5. assertAll: input-derived assertion suite vs the RPC endpoint, one Step each — full
 	//    parity with smoke.sh's catalog (D-j).                                      (assert.go)
@@ -168,10 +206,63 @@ func (e *Engine) Run(ctx context.Context, in Input) (*Result, error) {
 }
 
 // failResult records a terminal failure on res and returns it for the caller to return.
+// err should wrap a sentinel (errors.go); it is surfaced on res.Err for errors.Is branching.
 func failResult(res *Result, outcome Outcome, step string, err error) *Result {
 	res.Steps = append(res.Steps, Step{Name: step, Status: StepFail, Detail: err.Error()})
 	res.Outcome = outcome
 	res.FailedStep = step
 	res.Summary = fmt.Sprintf("%s: %v", step, err)
+	res.Err = err
 	return res
+}
+
+// Report renders a verbose, human-readable account of the run: the outcome, duration, the
+// validator substitution (including which boot validator each real validator's delegations
+// were remapped onto), and every check's result. Suitable for CLI output or daemon logs.
+func (r *Result) Report() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Rehearsal: %s\n", r.Outcome)
+	if r.Summary != "" {
+		fmt.Fprintf(&b, "Summary:   %s\n", r.Summary)
+	}
+	if !r.StartedAt.IsZero() && !r.FinishedAt.IsZero() {
+		fmt.Fprintf(&b, "Duration:  %s\n", r.FinishedAt.Sub(r.StartedAt).Round(time.Millisecond))
+	}
+
+	if r.Substitution != nil {
+		fmt.Fprintf(&b, "\nSubstitute validators (%d):\n", len(r.Substitution.Validators))
+		for _, v := range r.Substitution.Validators {
+			fmt.Fprintf(&b, "  %s — self-delegation %d\n", v.Moniker, v.SelfDelegation)
+		}
+		if len(r.Substitution.RealToSubstitute) > 0 {
+			reals := make([]string, 0, len(r.Substitution.RealToSubstitute))
+			for real := range r.Substitution.RealToSubstitute {
+				reals = append(reals, real)
+			}
+			sort.Strings(reals)
+			b.WriteString("Delegation remap (real validator → boot validator):\n")
+			for _, real := range reals {
+				fmt.Fprintf(&b, "  %s → %s\n", real, r.Substitution.RealToSubstitute[real])
+			}
+		}
+	}
+
+	b.WriteString("\nChecks:\n")
+	for _, s := range r.Steps {
+		glyph := "?"
+		switch s.Status {
+		case StepPass:
+			glyph = "✓"
+		case StepFail:
+			glyph = "✗"
+		case StepSkip:
+			glyph = "–"
+		}
+		fmt.Fprintf(&b, "  %s %s", glyph, s.Name)
+		if s.Detail != "" {
+			fmt.Fprintf(&b, ": %s", s.Detail)
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
 }

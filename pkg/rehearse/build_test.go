@@ -48,4 +48,5 @@ func TestRun_MissingAccounts_IsFailBuild(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, OutcomeFail, res.Outcome)
 	assert.Equal(t, "build", res.FailedStep)
+	assert.ErrorIs(t, res.Err, ErrInvalidInput)
 }

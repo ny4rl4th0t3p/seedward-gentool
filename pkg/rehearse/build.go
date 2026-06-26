@@ -18,9 +18,10 @@ import (
 // disk plus a baseline genesis from `<chaind> init`. Both the build check (real gentxs) and
 // the boot genesis (substitute gentxs) build from it, differing only in the gentx directory.
 type prepared struct {
-	dir         string // temp workdir root (caller removes)
-	baseGenesis []byte
-	repos       genesis.Repositories // CSV repos wired; Validators filled per gentx set
+	dir          string // temp workdir root (caller removes)
+	baseGenesis  []byte
+	repos        genesis.Repositories // CSV repos wired; Validators filled per gentx set
+	realGentxDir string               // the real gentxs, materialized (build check + self-deleg sum)
 }
 
 // allocWiring describes an optional allocation type: written and wired only when present.
@@ -99,8 +100,13 @@ func materialize(ctx context.Context, in Input) (*prepared, error) {
 		return nil, fmt.Errorf("read baseline genesis: %w", err)
 	}
 
+	realGentxDir := filepath.Join(dir, "gentx-real")
+	if err := writeGentxs(realGentxDir, in.Gentxs); err != nil {
+		return nil, err
+	}
+
 	committed = true
-	return &prepared{dir: dir, baseGenesis: base, repos: repos}, nil
+	return &prepared{dir: dir, baseGenesis: base, repos: repos, realGentxDir: realGentxDir}, nil
 }
 
 // buildGenesis assembles the genesis from the materialized allocations + the gentxs in
@@ -111,15 +117,11 @@ func (p *prepared) buildGenesis(ctx context.Context, cfg genesis.ChainConfig, ge
 	return genesis.Build(ctx, p.baseGenesis, cfg, repos)
 }
 
-// buildCheck assembles the genesis from the REAL gentxs. Failure means the approved input
-// set does not assemble (e.g. supply mismatch) → FAIL: build. The result is discarded; the
-// bootable genesis is built separately on substitute validators.
+// buildCheck assembles the genesis from the REAL gentxs (materialized by materialize).
+// Failure means the approved input set does not assemble (e.g. supply mismatch) → FAIL:
+// build. The result is discarded; the bootable genesis is built separately on substitutes.
 func buildCheck(ctx context.Context, in Input, p *prepared) error {
-	gentxDir := filepath.Join(p.dir, "gentx-real")
-	if err := writeGentxs(gentxDir, in.Gentxs); err != nil {
-		return err
-	}
-	_, err := p.buildGenesis(ctx, in.Config, gentxDir)
+	_, err := p.buildGenesis(ctx, in.Config, p.realGentxDir)
 	return err
 }
 

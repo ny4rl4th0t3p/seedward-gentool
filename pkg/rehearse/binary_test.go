@@ -15,7 +15,7 @@ import (
 func writeTempBinary(t *testing.T, content []byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "chaind")
-	require.NoError(t, os.WriteFile(path, content, 0o755))
+	require.NoError(t, os.WriteFile(path, content, 0o600)) // verifyBinary only hashes it, no exec bit needed
 	return path
 }
 
