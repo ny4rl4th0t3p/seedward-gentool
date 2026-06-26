@@ -212,11 +212,31 @@ func (e *Engine) Run(ctx context.Context, in Input) (*Result, error) {
 	}
 	res.Steps = append(res.Steps, Step{Name: "boot", Status: StepPass})
 
-	// 5. assertAll: input-derived assertion suite vs booted.RPCURL(), one Step each — full
-	//    parity with smoke.sh's catalog (D-j).                                      (assert.go)
+	// 5. Run the input-derived assertion suite against the booted chain (one Step each, full
+	//    smoke.sh parity). Any failed assertion is a real negative verdict → FAIL.
+	res.Steps = append(res.Steps, assertAll(ctx, in, sub, booted.RPCURL())...)
+	if failed := failedAssertions(res.Steps); len(failed) > 0 {
+		res.Outcome = OutcomeFail
+		res.FailedStep = failed[0]
+		res.Err = fmt.Errorf("%w: %d assertion(s) failed", ErrAssertion, len(failed))
+		res.Summary = fmt.Sprintf("%d assertion(s) failed (first: %s)", len(failed), failed[0])
+		return res, nil
+	}
 	res.Outcome = OutcomePass
-	res.Summary = fmt.Sprintf("built, booted %d substitute validators, chain advanced", res.Validators)
+	res.Summary = fmt.Sprintf("built, booted %d substitute validators, all assertions passed", res.Validators)
 	return res, nil
+}
+
+// failedAssertions returns the names of every failed Step (after build+boot pass, only
+// assertion steps remain to fail).
+func failedAssertions(steps []Step) []string {
+	var failed []string
+	for _, s := range steps {
+		if s.Status == StepFail {
+			failed = append(failed, s.Name)
+		}
+	}
+	return failed
 }
 
 // failResult records a terminal failure on res and returns it for the caller to return.
