@@ -117,8 +117,9 @@ type Substitution struct {
 // v1: a local process-based impl (mirrors smoke.sh); a container-per-chain impl is a
 // later drop-in. The engine owns the workdir; the Runtime owns the running processes.
 type Runtime interface {
-	// Boot starts the chain from the prepared node homes and returns once an RPC endpoint
-	// is reachable (or errors). The caller MUST tear down the returned Booted.
+	// Boot starts the chain from the prepared node homes and returns a handle to it (or
+	// errors). Readiness (RPC reachable, height advancing) is the caller's to poll via the
+	// returned RPCURL. The caller MUST tear down the returned Booted.
 	Boot(ctx context.Context, homes []string) (Booted, error)
 }
 
@@ -198,10 +199,23 @@ func (e *Engine) Run(ctx context.Context, in Input) (*Result, error) {
 	res.Validators = len(homes)
 	res.Steps = append(res.Steps, Step{Name: "prepare_boot", Status: StepPass})
 
-	// 4. e.runtime.Boot(homes) → poll height ≥ 1 within e.bootWait; ALWAYS Teardown.
-	//                                                                       (runtime_process.go)
-	// 5. assertAll: input-derived assertion suite vs the RPC endpoint, one Step each — full
+	// 4. Boot the substitute validators (process-based runtime) and poll height ≥ 1 within
+	//    e.bootWait; the chain is ALWAYS torn down. The substitute set is engine-built and
+	//    fully online, so a boot/liveness failure is infra, not a genesis verdict → ERROR.
+	booted, err := e.runtime.Boot(ctx, homes)
+	if err != nil {
+		return failResult(res, OutcomeError, "boot", fmt.Errorf("%w: %w", ErrBoot, err)), nil
+	}
+	defer func() { _ = booted.Teardown() }()
+	if err := waitForHeight(ctx, booted.RPCURL(), 1, e.bootWait); err != nil {
+		return failResult(res, OutcomeError, "boot", fmt.Errorf("%w: %w", ErrBoot, err)), nil
+	}
+	res.Steps = append(res.Steps, Step{Name: "boot", Status: StepPass})
+
+	// 5. assertAll: input-derived assertion suite vs booted.RPCURL(), one Step each — full
 	//    parity with smoke.sh's catalog (D-j).                                      (assert.go)
+	res.Outcome = OutcomePass
+	res.Summary = fmt.Sprintf("built, booted %d substitute validators, chain advanced", res.Validators)
 	return res, nil
 }
 
