@@ -82,6 +82,10 @@ test-smoke: ## Run the smoke test (2-validator network boots + produces a block)
 smoke-clean: ## Remove smoke test containers and images
 	docker compose -f $(SMOKE_FILE) down --rmi local --remove-orphans
 
+.PHONY: test-rehearse-boot
+test-rehearse-boot: ## Run the rehearse boot integration test (needs SEEDWARD_REHEARSE_CHAIND=<chaind binary>)
+	$(GO) test -count=1 -tags integration_boot -run TestEngine_BootAndAssert_Integration -v ./pkg/rehearse/
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Code quality
 # ──────────────────────────────────────────────────────────────────────────────
