@@ -300,7 +300,7 @@ func (a *asserter) communityPool() {
 	if pool == nil {
 		pool = top["community_pool"]
 	}
-	a.eqFloat("community_pool", strconv.FormatInt(a.cfg.CommunityPoolAmount, 10), coinAmount(pool, a.cfg.BondDenom))
+	a.eqFloat("community_pool", strconv.FormatInt(a.cfg.CommunityPoolAmount, 10), decCoinAmount(pool, a.cfg.BondDenom))
 }
 
 func (a *asserter) accounts() {
@@ -658,6 +658,24 @@ func coinAmount(raw json.RawMessage, denom string) string {
 	for _, c := range coins {
 		if c.Denom == denom {
 			return c.Amount
+		}
+	}
+	return ""
+}
+
+// decCoinAmount returns the amount for denom from a coins array encoded either as objects
+// ({denom,amount}) or as DecCoin strings ("500000.000000000000000000uatom"). The distribution
+// community pool uses the string form.
+func decCoinAmount(raw json.RawMessage, denom string) string {
+	if amt := coinAmount(raw, denom); amt != "" {
+		return amt
+	}
+	var strs []string
+	if json.Unmarshal(raw, &strs) == nil {
+		for _, s := range strs {
+			if strings.HasSuffix(s, denom) {
+				return strings.TrimSuffix(s, denom)
+			}
 		}
 	}
 	return ""

@@ -48,6 +48,12 @@ func TestCoinAmount(t *testing.T) {
 	assert.Empty(t, coinAmount(nil, "uatom"))
 }
 
+func TestDecCoinAmount_ObjectAndStringForms(t *testing.T) {
+	assert.Equal(t, "500000", decCoinAmount([]byte(`[{"denom":"uatom","amount":"500000"}]`), "uatom"))
+	assert.Equal(t, "500000.000000000000000000", decCoinAmount([]byte(`["500000.000000000000000000uatom"]`), "uatom"))
+	assert.Empty(t, decCoinAmount([]byte(`[]`), "uatom"))
+}
+
 func TestParamsMap(t *testing.T) {
 	wrapped := paramsMap([]byte(`{"params":{"bond_denom":"uatom"}}`))
 	assert.Equal(t, "uatom", jsonScalar(wrapped["bond_denom"]))

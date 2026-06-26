@@ -9,10 +9,12 @@
 //	SEEDWARD_REHEARSE_CHAIND=/path/to/gaiad \
 //	  go test -tags integration_boot -run TestEngine_BootAndAssert_Integration -v ./pkg/rehearse/
 //
-// The fixture mirrors tests/smoke/smoke.sh (2 validators, 1 account, 2 claims, 1 grant, authz,
-// feegrant, denom metadata, full params), but feeds the engine a FRESH base genesis — so unlike
-// smoke (which seeds validators via its input genesis) the validators carry zero liquid balance
-// and the total supply excludes their funding.
+// The fixture builds 5 real validators and collapses them onto 2 substitutes, so the
+// many-to-few collapse (self-delegation partitioning + real→substitute fan-in) and the claim
+// delegation remap are genuinely exercised — not a 1:1 pass-through. It mirrors
+// tests/smoke/smoke.sh otherwise (1 account, claims, grant, authz, feegrant, denom metadata,
+// full params), but feeds the engine a FRESH base genesis, so the validators carry zero liquid
+// balance and the total supply excludes their funding.
 
 package rehearse
 
@@ -31,6 +33,11 @@ import (
 	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis"
 )
 
+// integrationRealValidators is the real validator count the fixture generates; it must exceed
+// the substitute count below so the collapse is actually tested.
+const integrationRealValidators = 5
+const integrationSubstitutes = 2
+
 func TestEngine_BootAndAssert_Integration(t *testing.T) {
 	binPath := os.Getenv("SEEDWARD_REHEARSE_CHAIND")
 	if binPath == "" {
@@ -38,7 +45,7 @@ func TestEngine_BootAndAssert_Integration(t *testing.T) {
 	}
 
 	in := buildIntegrationInput(t, binPath)
-	e := New(NewProcessRuntime(binPath), WithBootWait(2*time.Minute))
+	e := New(NewProcessRuntime(binPath), WithValidators(integrationSubstitutes), WithBootWait(2*time.Minute))
 
 	res, err := e.Run(context.Background(), in)
 	require.NoError(t, err)
@@ -48,6 +55,19 @@ func TestEngine_BootAndAssert_Integration(t *testing.T) {
 		assert.NotEqualf(t, StepFail, s.Status, "%s: %s", s.Name, s.Detail)
 	}
 	require.Equalf(t, OutcomePass, res.Outcome, "summary: %s", res.Summary)
+
+	// Collapse + mapping: the 5 real validators must fold onto 2 substitutes, with every real
+	// moniker remapped onto one of them (so several reals share a substitute).
+	require.NotNil(t, res.Substitution)
+	assert.Len(t, res.Substitution.Validators, integrationSubstitutes)
+	assert.Len(t, res.Substitution.RealToSubstitute, integrationRealValidators)
+	subMonikers := make(map[string]bool, len(res.Substitution.Validators))
+	for _, v := range res.Substitution.Validators {
+		subMonikers[v.Moniker] = true
+	}
+	for realMoniker, sub := range res.Substitution.RealToSubstitute {
+		assert.Truef(t, subMonikers[sub], "real %s mapped to unknown substitute %s", realMoniker, sub)
+	}
 }
 
 // buildIntegrationInput runs the chain binary to generate real keys, gentxs and allocation
@@ -66,14 +86,18 @@ func buildIntegrationInput(t *testing.T, binPath string) Input {
 		genesisTime    = int64(1735987170)
 		valSelfDeleg   = int64(1000000)
 		accountBalance = int64(1000000)
-		claim1Amount   = int64(1000000) // delegates to validator-alpha
+		claim1Amount   = int64(1000000) // delegates to validator 0
 		claim2Amount   = int64(500000)  // no delegation
+		claim3Amount   = int64(1000000) // delegates to validator 1 (→ a different substitute)
 		grant1Amount   = int64(2000000)
 		communityPool  = int64(500000)
 		feegrantLimit  = int64(5000000)
 		vestingEnd     = int64(1900000000)
 	)
-	monikers := []string{"validator-alpha", "validator-beta"}
+	monikers := make([]string, integrationRealValidators)
+	for i := range monikers {
+		monikers[i] = fmt.Sprintf("validator-%d", i)
+	}
 
 	run := func(args ...string) string {
 		out, err := bin.run(ctx, args...)
@@ -119,15 +143,18 @@ func buildIntegrationInput(t *testing.T, binPath string) Input {
 	acc1 := addKey("account1")
 	claim1 := addKey("claim1")
 	claim2 := addKey("claim2")
+	claim3 := addKey("claim3")
 	grant1 := addKey("grant1")
 
 	totalSupply := int64(len(monikers))*valSelfDeleg + accountBalance +
-		claim1Amount + claim2Amount + grant1Amount + communityPool
+		claim1Amount + claim2Amount + claim3Amount + grant1Amount + communityPool
 
 	alloc := map[AllocationType][]byte{
 		AllocationAccounts: []byte(fmt.Sprintf("%s,%d\n", acc1, accountBalance)),
-		AllocationClaims: []byte(fmt.Sprintf("%s,%d,%s\n%s,%d\n",
-			claim1, claim1Amount, monikers[0], claim2, claim2Amount)),
+		AllocationClaims: []byte(fmt.Sprintf("%s,%d,%s\n%s,%d\n%s,%d,%s\n",
+			claim1, claim1Amount, monikers[0],
+			claim2, claim2Amount,
+			claim3, claim3Amount, monikers[1])),
 		AllocationGrants:   []byte(fmt.Sprintf("%s,%d\n", grant1, grant1Amount)),
 		AllocationAuthz:    []byte(fmt.Sprintf("%s,%s,/cosmos.bank.v1beta1.MsgSend\n", acc1, claim1)),
 		AllocationFeegrant: []byte(fmt.Sprintf("%s,%s,%d\n", acc1, claim2, feegrantLimit)),
