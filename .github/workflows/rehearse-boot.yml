@@ -1,0 +1,47 @@
+name: Rehearse Boot Integration
+
+on:
+  pull_request:
+    paths:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/rehearse-boot.yml'
+
+  workflow_dispatch:
+    inputs:
+      gaia_version:
+        description: "Gaia release tag to download the chaind binary from"
+        default: "v27.2.0"
+        required: false
+
+env:
+  # Same release the smoke test pins (tests/smoke/Dockerfile). Override via the dispatch input.
+  GAIA_VERSION: ${{ github.event.inputs.gaia_version || 'v27.2.0' }}
+
+jobs:
+  rehearse-boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: Provision chaind (gaiad) release binary
+        run: |
+          set -euo pipefail
+          base="https://github.com/cosmos/gaia/releases/download/${GAIA_VERSION}"
+          asset="gaiad-${GAIA_VERSION}-linux-amd64"
+          curl -fsSL -o "$asset" "${base}/${asset}"
+          curl -fsSL -o SHA256SUMS "${base}/SHA256SUMS-${GAIA_VERSION}.txt"
+          grep " ${asset}\$" SHA256SUMS | sha256sum -c -
+          chmod +x "$asset"
+          echo "SEEDWARD_REHEARSE_CHAIND=$PWD/$asset" >> "$GITHUB_ENV"
+
+      - name: Run rehearse boot integration test
+        run: make test-rehearse-boot

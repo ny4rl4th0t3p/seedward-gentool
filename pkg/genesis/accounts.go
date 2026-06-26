@@ -18,6 +18,7 @@ import (
 
 	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/encoding"
 	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/validator"
+	"github.com/ny4rl4th0t3p/seedward-gentool/pkg/genesis/vestingaccount"
 )
 
 // defaultNonStakedAmount is the fallback liquid reserve (base denom) kept on each
@@ -48,9 +49,27 @@ func newAccountsBuilder(
 	}
 }
 
+// getClaims returns the configured claims, or nil when no claim repository is set.
+// Claims are optional (a launch may have none); a nil repository is a clean skip,
+// mirroring the nil-tolerant authz/feegrant repositories — never a panic.
+func (va accountsBuilder) getClaims(ctx context.Context, enc encoding.EncodingConfig) ([]vestingaccount.Claim, error) {
+	if va.claimRepository == nil {
+		return nil, nil
+	}
+	return va.claimRepository.GetClaims(ctx, enc)
+}
+
+// getGrants returns the configured grants, or nil when no grant repository is set.
+func (va accountsBuilder) getGrants(ctx context.Context, enc encoding.EncodingConfig) ([]vestingaccount.Grant, error) {
+	if va.grantRepository == nil {
+		return nil, nil
+	}
+	return va.grantRepository.GetGrants(ctx, enc)
+}
+
 func (va accountsBuilder) fetchValidatorsShares(encodingConfig encoding.EncodingConfig) (map[string]int64, error) {
 	shares := map[string]int64{}
-	claims, err := va.claimRepository.GetClaims(context.Background(), encodingConfig)
+	claims, err := va.getClaims(context.Background(), encodingConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -132,11 +151,11 @@ func (va accountsBuilder) appendVestingAccounts(
 	validatorsReference map[string]ValidatorAddresses,
 	appState map[string]json.RawMessage,
 ) (delegations []stakingtypes.Delegation, err error) {
-	claims, err := va.claimRepository.GetClaims(ctx, encodingConfig)
+	claims, err := va.getClaims(ctx, encodingConfig)
 	if err != nil {
 		return nil, err
 	}
-	grants, err := va.grantRepository.GetGrants(ctx, encodingConfig)
+	grants, err := va.getGrants(ctx, encodingConfig)
 	if err != nil {
 		return nil, err
 	}
